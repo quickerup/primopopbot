@@ -217,19 +217,51 @@ export async function handleEditorCallback(env: Env, req: Request, tg: TelegramC
     await tg.sendMessageWithInlineKeyboard(chatId, "Select a command to schedule:", buttons);
   } else if (action === "schedcmd") {
     const command = parts[3];
-    await tg.sendMessageWithInlineKeyboard(chatId, `Schedule type for /${command}?`, [
-      [{ text: "🔄 Recurring (Cron)", callback_data: `editor:schedtype:${botId}:${command}:cron` }],
-      [{ text: "⏱️ One-off (Timestamp)", callback_data: `editor:schedtype:${botId}:${command}:once` }],
-      [{ text: "🔙 Cancel", callback_data: `editor:scheds:${botId}` }]
-    ]);
-  } else if (action === "schedtype") {
+    // Friendly frequency picker — no cron syntax needed
+    const FREQS: Array<[string, string, string]> = [
+      ["Every 10 sec",   "interval", "10"],
+      ["Every 30 sec",   "interval", "30"],
+      ["Every 1 min",    "interval", "60"],
+      ["Every 5 min",    "interval", "300"],
+      ["Every 15 min",   "interval", "900"],
+      ["Every 30 min",   "cron",     "*/30 * * * *"],
+      ["Every hour",     "cron",     "0 * * * *"],
+      ["Every 6 hours",  "cron",     "0 */6 * * *"],
+      ["Every 12 hours", "cron",     "0 */12 * * *"],
+      ["Once a day",     "cron",     "0 9 * * *"],
+      ["Once a week",    "cron",     "0 9 * * MON"],
+      ["Once a month",   "cron",     "0 9 1 * *"],
+    ];
+    // 2 per row for readability; cb: editor:schedfreq:botId:command:type:expr
+    const rows: any[][] = [];
+    for (let i = 0; i < FREQS.length; i += 2) {
+      const row: any[] = [];
+      for (let j = i; j < Math.min(i + 2, FREQS.length); j++) {
+        const [label, type, expr] = FREQS[j];
+        // encode expr to avoid colon collisions — use | as separator for expr part
+        row.push({ text: label, callback_data: `editor:schedfreq:${botId}:${command}:${type}:${encodeURIComponent(expr)}` });
+      }
+      rows.push(row);
+    }
+    rows.push([{ text: "⏱️ One-off (run once)", callback_data: `editor:schedtype:${botId}:${command}:once` }]);
+    rows.push([{ text: "🔙 Cancel", callback_data: `editor:scheds:${botId}` }]);
+    await tg.sendMessageWithInlineKeyboard(chatId, `How often should <b>/${command}</b> run?`, rows, { parse_mode: "HTML" });
+  } else if (action === "schedfreq") {
+    // Direct save — no text input needed
     const command = parts[3];
     const type = parts[4];
-    await setPending(env, chatId, { kind: "awaiting_editor_input", botId, field: "schedule_expr", tempSchedule: { command, type } });
-    const instructions = type === "cron" 
-      ? "Send a cron expression (e.g. `0 9 * * *` for daily at 9am UTC).\n\n(Send /cancel to abort)" 
-      : "Send a Unix timestamp in seconds (e.g. `1712000000`).\n\n(Send /cancel to abort)";
-    await tg.sendMessage(chatId, instructions, { parse_mode: "Markdown" });
+    const expr = decodeURIComponent(parts[5]);
+    const id = crypto.randomUUID().slice(0, 8);
+    await env.ANALYTICS_DB?.prepare("INSERT INTO bot_schedules (id, bot_id, command, type, expression) VALUES (?, ?, ?, ?, ?)")
+      .bind(id, botId, command, type, expr)
+      .run();
+    await tg.sendMessage(chatId, `✅ Schedule saved!`);
+    await showSchedulesMenu(env, tg, chatId, botId);
+  } else if (action === "schedtype") {
+    // Only reached for one-off now
+    const command = parts[3];
+    await setPending(env, chatId, { kind: "awaiting_editor_input", botId, field: "schedule_expr", tempSchedule: { command, type: "once" } });
+    await tg.sendMessage(chatId, "Send a Unix timestamp in seconds for when this should run once (e.g. `1712000000`).\n\n(Send /cancel to abort)", { parse_mode: "Markdown" });
   }
   
   return true;

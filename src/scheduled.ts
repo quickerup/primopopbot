@@ -65,6 +65,14 @@ async function runBotSchedules(event: ScheduledEvent, env: Env): Promise<void> {
       } catch (err) {
         console.error(`Invalid cron expression for schedule ${row.id}: ${row.expression}`);
       }
+    } else if (row.type === "interval") {
+      const intervalMs = Number(row.expression) * 1000;
+      if (intervalMs > 0) {
+        const lastRun = row.last_run ? row.last_run * 1000 : 0;
+        if (now - lastRun >= intervalMs) {
+          toRun.push(row);
+        }
+      }
     }
   }
 
