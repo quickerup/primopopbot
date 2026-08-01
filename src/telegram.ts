@@ -93,6 +93,10 @@ export class TelegramClient {
     return this.call("sendPhoto", { chat_id: chatId, photo, caption });
   }
 
+  async sendVideo(chatId: number | string, video: string, caption?: string) {
+    return this.call("sendVideo", { chat_id: chatId, video, caption });
+  }
+
   async sendDocument(chatId: number | string, document: string, caption?: string) {
     return this.call("sendDocument", { chat_id: chatId, document, caption });
   }

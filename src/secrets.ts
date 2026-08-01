@@ -27,6 +27,15 @@ async function deriveKey(passphrase: string, salt: Uint8Array): Promise<CryptoKe
   );
 }
 
+let cachedKey: CryptoKey | null = null;
+const FIXED_SALT = new Uint8Array(SALT_LEN); // All zeros
+
+async function getCachedKey(passphrase: string): Promise<CryptoKey> {
+  if (cachedKey) return cachedKey;
+  cachedKey = await deriveKey(passphrase, FIXED_SALT);
+  return cachedKey;
+}
+
 function toB64(bytes: Uint8Array): string {
   let binary = "";
   for (const b of bytes) binary += String.fromCharCode(b);
@@ -40,27 +49,24 @@ function fromB64(b64: string): Uint8Array {
   return bytes;
 }
 
-/** Encrypt a UTF-8 string (typically a JSON-stringified secrets map). */
 export async function encryptSecrets(plaintext: string, passphrase: string): Promise<string> {
-  const salt = crypto.getRandomValues(new Uint8Array(SALT_LEN));
   const iv = crypto.getRandomValues(new Uint8Array(IV_LEN));
-  const key = await deriveKey(passphrase, salt);
+  const key = await getCachedKey(passphrase);
   const enc = new TextEncoder();
   const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(plaintext));
-  const combined = new Uint8Array(salt.length + iv.length + ciphertext.byteLength);
-  combined.set(salt, 0);
-  combined.set(iv, salt.length);
-  combined.set(new Uint8Array(ciphertext), salt.length + iv.length);
+  const combined = new Uint8Array(FIXED_SALT.length + iv.length + ciphertext.byteLength);
+  combined.set(FIXED_SALT, 0);
+  combined.set(iv, FIXED_SALT.length);
+  combined.set(new Uint8Array(ciphertext), FIXED_SALT.length + iv.length);
   return toB64(combined);
 }
 
-/** Decrypt a blob produced by encryptSecrets. Throws if passphrase/blob mismatch. */
-export async function decryptSecrets(blob: string, passphrase: string): Promise<string> {
+export async function decryptSecrets(blob: string, passphrase: string, useFixedSalt = true): Promise<string> {
   const combined = fromB64(blob);
   const salt = combined.slice(0, SALT_LEN);
   const iv = combined.slice(SALT_LEN, SALT_LEN + IV_LEN);
   const ciphertext = combined.slice(SALT_LEN + IV_LEN);
-  const key = await deriveKey(passphrase, salt);
+  const key = useFixedSalt ? await getCachedKey(passphrase) : await deriveKey(passphrase, salt);
   const plainBuf = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ciphertext);
   return new TextDecoder().decode(plainBuf);
 }
@@ -75,12 +81,18 @@ export async function loadSecrets(
   const blob = await kv.get(`secrets:${botId}`);
   if (!blob) return {};
   try {
-    const json = await decryptSecrets(blob, passphrase);
+    const json = await decryptSecrets(blob, passphrase, true);
     return JSON.parse(json) as SecretsMap;
   } catch {
-    // Corrupt blob or wrong passphrase — fail safe to "no secrets" rather
-    // than throwing and taking the whole action sequence down.
-    return {};
+    try {
+      // Fallback for old secrets encrypted with random salts.
+      // This is slow and might exceed CPU limits if many bots have old secrets,
+      // but it allows graceful degradation (users just re-save their secrets).
+      const json = await decryptSecrets(blob, passphrase, false);
+      return JSON.parse(json) as SecretsMap;
+    } catch {
+      return {};
+    }
   }
 }
 
