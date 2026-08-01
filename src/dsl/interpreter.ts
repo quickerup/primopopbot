@@ -348,6 +348,16 @@ export async function runActions(
         }
         break;
       }
+      case "pick_random": {
+        const source = vars[action.source];
+        if (!Array.isArray(source) || source.length === 0) {
+          vars = { ...vars, [action.assign]: null };
+          break;
+        }
+        const idx = Math.floor(Math.random() * source.length);
+        vars = { ...vars, [action.assign]: source[idx] };
+        break;
+      }
     }
   }
 

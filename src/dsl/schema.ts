@@ -18,6 +18,8 @@ const VALID_ACTION_TYPES = new Set([
   "sort_slice",
   "condition",
   "ask",
+  "log_event",
+  "pick_random",
 ]);
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
@@ -76,6 +78,17 @@ function validateAction(a: unknown, path: string): void {
       throw new SchemaError(`${path}.expression must be a non-empty string`);
     }
     if (typeof c.assign !== "string") throw new SchemaError(`${path}.assign is required`);
+  }
+  if (type === "log_event") {
+    const p = a as any;
+    if (typeof p.name !== "string") throw new SchemaError(`${path}.name is required`);
+    if (typeof p.value !== "string") throw new SchemaError(`${path}.value is required`);
+  }
+
+  if (type === "pick_random") {
+    const p = a as any;
+    if (typeof p.source !== "string") throw new SchemaError(`${path}.source is required`);
+    if (typeof p.assign !== "string") throw new SchemaError(`${path}.assign is required`);
   }
   if (type === "request") {
     const r = a as any;

@@ -26,7 +26,8 @@ export type ActionType =
   | "sort_slice"
   | "condition"
   | "ask"
-  | "log_event";
+  | "log_event"
+  | "pick_random";
 
 // Action types that are never allowed in a config saved against a PUBLIC
 // bot. `request` is conditionally dangerous (SSRF/open-proxy risk) so it's
@@ -182,6 +183,12 @@ export interface LogEventAction extends BaseAction {
   value: string; // value to record — supports {vars.*} placeholders
 }
 
+export interface PickRandomAction extends BaseAction {
+  type: "pick_random";
+  source: string; // variable holding an array
+  assign: string;
+}
+
 export type Action =
   | SendMessageAction
   | SendPhotoAction
@@ -198,7 +205,8 @@ export type Action =
   | SortSliceAction
   | ConditionAction
   | AskAction
-  | LogEventAction;
+  | LogEventAction
+  | PickRandomAction;
 
 export interface CommandDef {
   command: string; // without leading slash
