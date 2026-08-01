@@ -176,7 +176,7 @@ app.post("/hook/:botId", async (c) => {
 
 export default {
   fetch: app.fetch.bind(app),
-  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(handleScheduled(env));
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(handleScheduled(event, env));
   },
 };

@@ -185,7 +185,7 @@ async function showBotMenu(env: Env, tg: TelegramClient, chatId: number, botId: 
   
   await tg.sendMessageWithInlineKeyboard(chatId, msg, [
     [{ text: "📄 View/Upload JSON", callback_data: `manage:config:${botId}` }, { text: "🔑 Secrets", callback_data: `manage:secrets:${botId}` }],
-    [{ text: "⚡ Manage Actions", callback_data: `editor:cmds:${botId}` }],
+    [{ text: "⚡ Manage Actions", callback_data: `editor:cmds:${botId}` }, { text: "⏰ Manage Schedules", callback_data: `editor:scheds:${botId}` }],
     [{ text: "🔄 Sync Commands", callback_data: `manage:sync:${botId}` }],
     [{ text: "👁️ Toggle Visibility", callback_data: `manage:visibility:${botId}` }],
     [{ text: "🗑️ Delete Bot", callback_data: `manage:delete:${botId}` }],

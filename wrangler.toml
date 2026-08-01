@@ -15,7 +15,7 @@ kv_namespaces = [
 ]
 
 [triggers]
-crons = ["0 9 * * MON"]
+crons = ["* * * * *", "0 9 * * MON"]
 
 # ---------------------------------------------------------------------------
 # Durable Object: one ChatSession instance per "botId:chatId" pair.

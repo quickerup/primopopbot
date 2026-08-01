@@ -1,15 +1,17 @@
 import { Env } from "./env";
 import { TelegramClient, TgCallbackQuery, TgMessage } from "./telegram";
 import { BotConfig, ActionType, BaseAction } from "./dsl/types";
+import { CronExpressionParser } from "cron-parser";
 
 // This file handles the interactive Visual Action & Button Editor (the Premium BotFather experience).
 
 export interface PendingEditorState {
   kind: "awaiting_editor_input";
   botId: string;
-  commandIndex: number;
+  commandIndex?: number;
   actionIndex?: number;
-  field: string; // e.g. "command_name", "action_url", "action_text", etc.
+  field: string; // e.g. "command_name", "action_url", "schedule_expr", etc.
+  tempSchedule?: { command: string; type: string };
 }
 
 async function getBotConfig(env: Env, botId: string): Promise<BotConfig | null> {
@@ -24,6 +26,39 @@ async function saveBotConfig(env: Env, botId: string, config: BotConfig): Promis
 // ---------------------------------------------------------------------------
 // MENUS
 // ---------------------------------------------------------------------------
+
+interface ScheduleRow {
+  id: string;
+  bot_id: string;
+  command: string;
+  type: string;
+  expression: string;
+  last_run: number;
+}
+
+export async function showSchedulesMenu(env: Env, tg: TelegramClient, chatId: number, botId: string): Promise<void> {
+  const schedules = await env.ANALYTICS_DB
+    ?.prepare("SELECT * FROM bot_schedules WHERE bot_id = ?")
+    .bind(botId)
+    .all<ScheduleRow>();
+    
+  let msg = `⏰ <b>Schedules for @${botId}</b>\n\n`;
+  const buttons: any[][] = [];
+  
+  if (!schedules || !schedules.results || schedules.results.length === 0) {
+    msg += "No schedules configured.";
+  } else {
+    schedules.results.forEach(s => {
+      msg += `• /${s.command} [${s.type.toUpperCase()}] — ${s.expression}\n`;
+      buttons.push([{ text: `🗑️ Delete /${s.command} (${s.type})`, callback_data: `editor:delsched:${botId}:${s.id}` }]);
+    });
+  }
+  
+  buttons.push([{ text: "➕ Add Schedule", callback_data: `editor:addsched:${botId}` }]);
+  buttons.push([{ text: "🔙 Back to Bot", callback_data: `manage:bot:${botId}` }]);
+  
+  await tg.sendMessageWithInlineKeyboard(chatId, msg, buttons, { parse_mode: "HTML" });
+}
 
 export async function showCommandsMenu(env: Env, tg: TelegramClient, chatId: number, botId: string): Promise<void> {
   const config = await getBotConfig(env, botId) ?? { version: 1, commands: [] };
@@ -165,6 +200,36 @@ export async function handleEditorCallback(env: Env, req: Request, tg: TelegramC
     const field = parts[5];
     await setPending(env, chatId, { kind: "awaiting_editor_input", botId, commandIndex: cIdx, actionIndex: aIdx, field });
     await tg.sendMessage(chatId, `Send the new value for ${field}:\n\n(Send /cancel to abort)`);
+  } else if (action === "scheds") {
+    await showSchedulesMenu(env, tg, chatId, botId);
+  } else if (action === "delsched") {
+    const schedId = parts[3];
+    await env.ANALYTICS_DB?.prepare("DELETE FROM bot_schedules WHERE id = ?").bind(schedId).run();
+    await showSchedulesMenu(env, tg, chatId, botId);
+  } else if (action === "addsched") {
+    const config = await getBotConfig(env, botId);
+    if (!config || config.commands.length === 0) {
+      await tg.sendMessage(chatId, "You need to add at least one command to this bot before scheduling.");
+      return true;
+    }
+    const buttons = config.commands.map(c => [{ text: `/${c.command}`, callback_data: `editor:schedcmd:${botId}:${c.command}` }]);
+    buttons.push([{ text: "🔙 Cancel", callback_data: `editor:scheds:${botId}` }]);
+    await tg.sendMessageWithInlineKeyboard(chatId, "Select a command to schedule:", buttons);
+  } else if (action === "schedcmd") {
+    const command = parts[3];
+    await tg.sendMessageWithInlineKeyboard(chatId, `Schedule type for /${command}?`, [
+      [{ text: "🔄 Recurring (Cron)", callback_data: `editor:schedtype:${botId}:${command}:cron` }],
+      [{ text: "⏱️ One-off (Timestamp)", callback_data: `editor:schedtype:${botId}:${command}:once` }],
+      [{ text: "🔙 Cancel", callback_data: `editor:scheds:${botId}` }]
+    ]);
+  } else if (action === "schedtype") {
+    const command = parts[3];
+    const type = parts[4];
+    await setPending(env, chatId, { kind: "awaiting_editor_input", botId, field: "schedule_expr", tempSchedule: { command, type } });
+    const instructions = type === "cron" 
+      ? "Send a cron expression (e.g. `0 9 * * *` for daily at 9am UTC).\n\n(Send /cancel to abort)" 
+      : "Send a Unix timestamp in seconds (e.g. `1712000000`).\n\n(Send /cancel to abort)";
+    await tg.sendMessage(chatId, instructions, { parse_mode: "Markdown" });
   }
   
   return true;
@@ -177,7 +242,7 @@ export async function handleEditorMessage(env: Env, tg: TelegramClient, msg: TgM
   const config = await getBotConfig(env, pending.botId);
   if (!config) return true;
   
-  if (pending.field === "command_name") {
+  if (pending.field === "command_name" && pending.commandIndex !== undefined) {
     if (config.commands[pending.commandIndex]) {
       config.commands[pending.commandIndex].command = text.replace(/^\//, "");
       await saveBotConfig(env, pending.botId, config);
@@ -187,7 +252,7 @@ export async function handleEditorMessage(env: Env, tg: TelegramClient, msg: TgM
     return true;
   }
   
-  if (pending.actionIndex !== undefined) {
+  if (pending.actionIndex !== undefined && pending.commandIndex !== undefined) {
     const act = config.commands[pending.commandIndex]?.actions[pending.actionIndex] as any;
     if (act) {
       act[pending.field] = text;
@@ -195,6 +260,30 @@ export async function handleEditorMessage(env: Env, tg: TelegramClient, msg: TgM
     }
     await clearPending(env, chatId);
     await showActionMenu(env, tg, chatId, pending.botId, pending.commandIndex, pending.actionIndex);
+    return true;
+  }
+  if (pending.field === "schedule_expr" && pending.tempSchedule) {
+    const { command, type } = pending.tempSchedule;
+    if (type === "cron") {
+      try {
+        CronExpressionParser.parse(text);
+      } catch {
+        await tg.sendMessage(chatId, "❌ Invalid cron expression. Please send a valid one (e.g. `0 9 * * *`), or send /cancel.");
+        return true;
+      }
+    } else {
+      if (isNaN(Number(text))) {
+        await tg.sendMessage(chatId, "❌ Invalid timestamp. Please send a numeric Unix timestamp, or send /cancel.");
+        return true;
+      }
+    }
+    const id = crypto.randomUUID();
+    await env.ANALYTICS_DB?.prepare("INSERT INTO bot_schedules (id, bot_id, command, type, expression) VALUES (?, ?, ?, ?, ?)")
+      .bind(id, pending.botId, command, type, text)
+      .run();
+    await clearPending(env, chatId);
+    await tg.sendMessage(chatId, "✅ Schedule saved!");
+    await showSchedulesMenu(env, tg, chatId, pending.botId);
     return true;
   }
   
