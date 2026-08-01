@@ -9,7 +9,7 @@
 // A fresh random salt and IV are generated on every encrypt call.
 // ---------------------------------------------------------------------------
 
-const PBKDF2_ITERATIONS = 210_000;
+const PBKDF2_ITERATIONS = 100_000;
 const SALT_LEN = 16;
 const IV_LEN = 12;
 
