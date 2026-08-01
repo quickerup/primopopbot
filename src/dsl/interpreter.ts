@@ -358,6 +358,28 @@ export async function runActions(
         vars = { ...vars, [action.assign]: source[idx] };
         break;
       }
+      case "pick_unseen": {
+        const source = vars[action.source];
+        const candidates = Array.isArray(source) ? source : [];
+        const seen = Array.isArray(vars[action.seen_key]) ? (vars[action.seen_key] as unknown[]) : [];
+        const unseen = candidates.filter((item) => !seen.includes((item as Record<string, unknown>)?.[action.key]));
+        const exhaustedFlag = action.exhausted_flag ?? `${action.assign}_exhausted`;
+
+        if (unseen.length === 0) {
+          // Only a *real* exhausted cycle resets tracking — an empty/failed
+          // fetch (candidates.length === 0) should not look like "all sent".
+          vars = { ...vars, [action.assign]: null, [action.seen_key]: [], [exhaustedFlag]: candidates.length > 0 };
+          break;
+        }
+        const chosen = unseen[Math.floor(Math.random() * unseen.length)] as Record<string, unknown>;
+        vars = {
+          ...vars,
+          [action.assign]: chosen,
+          [action.seen_key]: [...seen, chosen[action.key]],
+          [exhaustedFlag]: false,
+        };
+        break;
+      }
     }
   }
 

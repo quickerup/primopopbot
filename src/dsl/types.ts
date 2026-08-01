@@ -27,7 +27,8 @@ export type ActionType =
   | "condition"
   | "ask"
   | "log_event"
-  | "pick_random";
+  | "pick_random"
+  | "pick_unseen";
 
 // Action types that are never allowed in a config saved against a PUBLIC
 // bot. `request` is conditionally dangerous (SSRF/open-proxy risk) so it's
@@ -189,6 +190,15 @@ export interface PickRandomAction extends BaseAction {
   assign: string;
 }
 
+export interface PickUnseenAction extends BaseAction {
+  type: "pick_unseen";
+  source: string;       // var holding the full candidate array
+  key: string;           // field used as the unique id, e.g. "id"
+  seen_key: string;      // var name that persists the array of already-picked ids
+  assign: string;        // var to receive the chosen item (or null)
+  exhausted_flag?: string; // var set true/false; defaults to `${assign}_exhausted`
+}
+
 export type Action =
   | SendMessageAction
   | SendPhotoAction
@@ -206,7 +216,8 @@ export type Action =
   | ConditionAction
   | AskAction
   | LogEventAction
-  | PickRandomAction;
+  | PickRandomAction
+  | PickUnseenAction;
 
 export interface CommandDef {
   command: string; // without leading slash
