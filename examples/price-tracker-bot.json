@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "commands": [
+    {
+      "command": "prices",
+      "actions": [
+        {
+          "type": "request",
+          "url": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&page=1",
+          "method": "GET",
+          "assign": "coins"
+        },
+        {
+          "type": "transform",
+          "source": "coins",
+          "assign": "coins_slim",
+          "op": "map",
+          "fields": {
+            "name": "name",
+            "price": "current_price",
+            "change": "price_change_percentage_24h"
+          }
+        },
+        {
+          "type": "sort_slice",
+          "source": "coins_slim",
+          "assign": "top_movers",
+          "key": "change",
+          "order": "desc",
+          "top": 5
+        },
+        {
+          "type": "send_message",
+          "text": "Top 5 24h movers: {vars.top_movers}"
+        }
+      ]
+    },
+    {
+      "command": "margin",
+      "actions": [
+        { "type": "ask", "prompt": "Cost price?", "assign": "cost" },
+        { "type": "ask", "prompt": "Sell price?", "assign": "sell" },
+        {
+          "type": "compute",
+          "expression": "(sell - cost) / cost * 100",
+          "assign": "margin_pct"
+        },
+        { "type": "send_message", "text": "Margin: {vars.margin_pct}%" }
+      ]
+    }
+  ]
+}

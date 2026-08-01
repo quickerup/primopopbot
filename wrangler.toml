@@ -1,0 +1,49 @@
+name = "telegram-bot-factory"
+main = "src/index.ts"
+compatibility_date = "2026-07-31"
+compatibility_flags = ["nodejs_compat"]
+
+# ---------------------------------------------------------------------------
+# KV namespace: bot registry, configs, secrets blobs, short-TTL "pending" state
+# Create with:
+#   wrangler kv namespace create BOT_KV
+#   wrangler kv namespace create BOT_KV --preview
+# then paste the resulting ids below.
+# ---------------------------------------------------------------------------
+kv_namespaces = [
+  { binding = "BOT_KV", id = "bdde911c644c4de7ae4c78374c649105", preview_id = "59b4e85c186244ca9228e93f9644118c" }
+]
+
+# ---------------------------------------------------------------------------
+# Durable Object: one ChatSession instance per "botId:chatId" pair.
+# Holds vars, paused ask-flows, and rate-limit counters — this must be a DO,
+# not KV, because KV is eventually consistent and too slow for a hot
+# conversational loop, and Workers instances aren't guaranteed to persist
+# in-memory state between requests.
+# ---------------------------------------------------------------------------
+[[durable_objects.bindings]]
+name = "CHAT_SESSION"
+class_name = "ChatSession"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ChatSession"]
+
+# ---------------------------------------------------------------------------
+# Workers AI binding, used by /ai to draft DSL commands from a description.
+# ---------------------------------------------------------------------------
+[ai]
+binding = "AI"
+
+# ---------------------------------------------------------------------------
+# Plain (non-secret) vars. Real secrets go in via `wrangler secret put`, see
+# setup.sh / README.md. FACTORY_OWNER_ID is the numeric Telegram user id of
+# the only person allowed to talk to the factory bot.
+# ---------------------------------------------------------------------------
+[vars]
+FACTORY_OWNER_ID = "8492548344"
+# Comma-separated allowlist of hosts that `request` actions on PUBLIC child
+# bots are permitted to call. Leave empty to block all outbound `request`
+# actions on public bots (safest default). Private bots are not restricted
+# by this list, since only the owner can drive them.
+PUBLIC_REQUEST_ALLOWLIST = "en.wikipedia.org"

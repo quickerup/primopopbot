@@ -1,0 +1,20 @@
+# Cloudflare Wrangler local state (contains cached auth tokens, local KV, etc.)
+.wrangler/
+
+# Node modules
+node_modules/
+
+# TypeScript build output (if any)
+dist/
+
+# Environment / secrets files — NEVER commit these
+.env
+.env.*
+*.env
+
+# macOS junk
+.DS_Store
+
+# Editor dirs
+.vscode/
+.idea/

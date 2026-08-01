@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "commands": [
+    {
+      "command": "start",
+      "actions": [
+        { "type": "send_message", "text": "Hi {user.first_name}! Try /dice or /poll." }
+      ]
+    },
+    {
+      "command": "dice",
+      "actions": [
+        { "type": "send_dice", "emoji": "🎲" }
+      ]
+    },
+    {
+      "command": "poll",
+      "actions": [
+        {
+          "type": "send_poll",
+          "question": "Best programming language?",
+          "options": ["TypeScript", "Python", "Rust", "Go"]
+        }
+      ]
+    },
+    {
+      "command": "name",
+      "actions": [
+        { "type": "ask", "prompt": "What's your name?", "assign": "given_name" },
+        { "type": "send_message", "text": "Nice to meet you, {vars.given_name}!" }
+      ]
+    }
+  ]
+}

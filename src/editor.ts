@@ -1,0 +1,202 @@
+import { Env } from "./env";
+import { TelegramClient, TgCallbackQuery, TgMessage } from "./telegram";
+import { BotConfig, ActionType, BaseAction } from "./dsl/types";
+
+// This file handles the interactive Visual Action & Button Editor (the Premium BotFather experience).
+
+export interface PendingEditorState {
+  kind: "awaiting_editor_input";
+  botId: string;
+  commandIndex: number;
+  actionIndex?: number;
+  field: string; // e.g. "command_name", "action_url", "action_text", etc.
+}
+
+async function getBotConfig(env: Env, botId: string): Promise<BotConfig | null> {
+  const raw = await env.BOT_KV.get(`config:${botId}`);
+  return raw ? (JSON.parse(raw) as BotConfig) : null;
+}
+
+async function saveBotConfig(env: Env, botId: string, config: BotConfig): Promise<void> {
+  await env.BOT_KV.put(`config:${botId}`, JSON.stringify(config));
+}
+
+// ---------------------------------------------------------------------------
+// MENUS
+// ---------------------------------------------------------------------------
+
+export async function showCommandsMenu(env: Env, tg: TelegramClient, chatId: number, botId: string): Promise<void> {
+  const config = await getBotConfig(env, botId) ?? { version: 1, commands: [] };
+  const buttons: any[][] = [];
+  
+  let msg = `⚡ <b>Manage Actions for @${botId}</b>\nSelect a command to modify:\n\n`;
+  if (config.commands.length === 0) {
+    msg += "No commands yet.";
+  } else {
+    config.commands.forEach((cmd, i) => {
+      msg += `• /${cmd.command} ➔ (${cmd.actions.length} actions)\n`;
+      buttons.push([{ text: `✏️ Edit /${cmd.command}`, callback_data: `editor:cmd:${botId}:${i}` }]);
+    });
+  }
+  
+  buttons.push([{ text: "➕ Add Command", callback_data: `editor:addcmd:${botId}` }]);
+  buttons.push([{ text: "🔙 Back to Dashboard", callback_data: `manage:bot:${botId}` }]);
+
+  await tg.sendMessageWithInlineKeyboard(chatId, msg, buttons, { parse_mode: "HTML" });
+}
+
+export async function showCommandMenu(env: Env, tg: TelegramClient, chatId: number, botId: string, commandIndex: number): Promise<void> {
+  const config = await getBotConfig(env, botId);
+  if (!config || !config.commands[commandIndex]) {
+    await tg.sendMessage(chatId, "Command not found.");
+    return;
+  }
+  const cmd = config.commands[commandIndex];
+  
+  let msg = `🛠️ <b>Editing Command:</b> /${cmd.command}\n\nActions:\n`;
+  const buttons: any[][] = [];
+  
+  if (cmd.actions.length === 0) {
+    msg += "No actions.";
+  } else {
+    cmd.actions.forEach((act, i) => {
+      msg += `${i+1}. ${act.type}\n`;
+      buttons.push([{ text: `✏️ Edit Action ${i+1} (${act.type})`, callback_data: `editor:act:${botId}:${commandIndex}:${i}` }]);
+    });
+  }
+
+  buttons.push([{ text: "➕ Add Action", callback_data: `editor:addact:${botId}:${commandIndex}` }]);
+  buttons.push([{ text: "💬 Rename Command", callback_data: `editor:rencmd:${botId}:${commandIndex}` }]);
+  buttons.push([{ text: "🗑️ Delete Command", callback_data: `editor:delcmd:${botId}:${commandIndex}` }]);
+  buttons.push([{ text: "🔙 Back to Commands", callback_data: `editor:cmds:${botId}` }]);
+
+  await tg.sendMessageWithInlineKeyboard(chatId, msg, buttons, { parse_mode: "HTML" });
+}
+
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+export async function showActionMenu(env: Env, tg: TelegramClient, chatId: number, botId: string, commandIndex: number, actionIndex: number): Promise<void> {
+  const config = await getBotConfig(env, botId);
+  if (!config || !config.commands[commandIndex] || !config.commands[commandIndex].actions[actionIndex]) return;
+  
+  const cmd = config.commands[commandIndex];
+  const act = cmd.actions[actionIndex] as any;
+  
+  let msg = `🛠️ <b>Editing Action ${actionIndex+1} in /${cmd.command}</b>\nType: ${act.type}\n\n`;
+  const buttons: any[][] = [];
+  
+  // Dynamically generate fields based on action type
+  if (act.type === "send_message") {
+    const textPreview = escapeHtml(act.text.slice(0, 50)) + (act.text.length > 50 ? "..." : "");
+    msg += `Text: ${textPreview}\n`;
+    buttons.push([{ text: "📝 Edit Text", callback_data: `editor:setfield:${botId}:${commandIndex}:${actionIndex}:text` }]);
+  } else if (act.type === "request") {
+    msg += `URL: ${escapeHtml(act.url || "")}\nMethod: ${act.method || "GET"}\nAssign: ${act.assign || "none"}\nJSON Key: ${act.json_key || "none"}\n`;
+    buttons.push([{ text: "🔗 Edit URL", callback_data: `editor:setfield:${botId}:${commandIndex}:${actionIndex}:url` }]);
+    buttons.push([{ text: "📦 Edit Assign Var", callback_data: `editor:setfield:${botId}:${commandIndex}:${actionIndex}:assign` }]);
+  } else if (act.type === "set_variable") {
+    msg += `Name: ${escapeHtml(act.name || "")}\nValue: ${escapeHtml(JSON.stringify(act.value) || "")}\n`;
+    buttons.push([{ text: "📦 Edit Name", callback_data: `editor:setfield:${botId}:${commandIndex}:${actionIndex}:name` }]);
+    buttons.push([{ text: "📝 Edit Value", callback_data: `editor:setfield:${botId}:${commandIndex}:${actionIndex}:value` }]);
+  } else {
+    msg += `(Visual editing for ${act.type} is limited. Use JSON upload for full control.)\n`;
+  }
+
+  buttons.push([{ text: "🗑️ Delete Action", callback_data: `editor:delact:${botId}:${commandIndex}:${actionIndex}` }]);
+  buttons.push([{ text: "🔙 Back to Actions", callback_data: `editor:cmd:${botId}:${commandIndex}` }]);
+
+  await tg.sendMessageWithInlineKeyboard(chatId, msg, buttons, { parse_mode: "HTML" });
+}
+
+export async function handleEditorCallback(env: Env, req: Request, tg: TelegramClient, cq: TgCallbackQuery, setPending: any): Promise<boolean> {
+  const data = cq.data ?? "";
+  if (!data.startsWith("editor:")) return false;
+  
+  const chatId = cq.message?.chat.id;
+  if (!chatId) return true;
+  
+  const parts = data.split(":");
+  const action = parts[1];
+  const botId = parts[2];
+  
+  if (action === "cmds") {
+    await showCommandsMenu(env, tg, chatId, botId);
+  } else if (action === "cmd") {
+    await showCommandMenu(env, tg, chatId, botId, parseInt(parts[3]));
+  } else if (action === "act") {
+    await showActionMenu(env, tg, chatId, botId, parseInt(parts[3]), parseInt(parts[4]));
+  } else if (action === "addcmd") {
+    const config = await getBotConfig(env, botId) ?? { version: 1, commands: [] };
+    config.commands.push({ command: "new_command", actions: [] });
+    await saveBotConfig(env, botId, config);
+    await showCommandMenu(env, tg, chatId, botId, config.commands.length - 1);
+  } else if (action === "delcmd") {
+    const config = await getBotConfig(env, botId);
+    if (config) {
+      config.commands.splice(parseInt(parts[3]), 1);
+      await saveBotConfig(env, botId, config);
+    }
+    await showCommandsMenu(env, tg, chatId, botId);
+  } else if (action === "addact") {
+    const config = await getBotConfig(env, botId);
+    const cIdx = parseInt(parts[3]);
+    if (config && config.commands[cIdx]) {
+      config.commands[cIdx].actions.push({ type: "send_message", text: "New message" });
+      await saveBotConfig(env, botId, config);
+      await showActionMenu(env, tg, chatId, botId, cIdx, config.commands[cIdx].actions.length - 1);
+    }
+  } else if (action === "delact") {
+    const config = await getBotConfig(env, botId);
+    const cIdx = parseInt(parts[3]);
+    const aIdx = parseInt(parts[4]);
+    if (config && config.commands[cIdx]) {
+      config.commands[cIdx].actions.splice(aIdx, 1);
+      await saveBotConfig(env, botId, config);
+      await showCommandMenu(env, tg, chatId, botId, cIdx);
+    }
+  } else if (action === "rencmd") {
+    await setPending(env, chatId, { kind: "awaiting_editor_input", botId, commandIndex: parseInt(parts[3]), field: "command_name" });
+    await tg.sendMessage(chatId, "Send the new command name (e.g. `start`):", { parse_mode: "Markdown" });
+  } else if (action === "setfield") {
+    const cIdx = parseInt(parts[3]);
+    const aIdx = parseInt(parts[4]);
+    const field = parts[5];
+    await setPending(env, chatId, { kind: "awaiting_editor_input", botId, commandIndex: cIdx, actionIndex: aIdx, field });
+    await tg.sendMessage(chatId, `Send the new value for ${field}:\n\n(Send /cancel to abort)`);
+  }
+  
+  return true;
+}
+
+export async function handleEditorMessage(env: Env, tg: TelegramClient, msg: TgMessage, pending: PendingEditorState, clearPending: any): Promise<boolean> {
+  const chatId = msg.chat.id;
+  const text = (msg.text ?? "").trim();
+  
+  const config = await getBotConfig(env, pending.botId);
+  if (!config) return true;
+  
+  if (pending.field === "command_name") {
+    if (config.commands[pending.commandIndex]) {
+      config.commands[pending.commandIndex].command = text.replace(/^\//, "");
+      await saveBotConfig(env, pending.botId, config);
+    }
+    await clearPending(env, chatId);
+    await showCommandMenu(env, tg, chatId, pending.botId, pending.commandIndex);
+    return true;
+  }
+  
+  if (pending.actionIndex !== undefined) {
+    const act = config.commands[pending.commandIndex]?.actions[pending.actionIndex] as any;
+    if (act) {
+      act[pending.field] = text;
+      await saveBotConfig(env, pending.botId, config);
+    }
+    await clearPending(env, chatId);
+    await showActionMenu(env, tg, chatId, pending.botId, pending.commandIndex, pending.actionIndex);
+    return true;
+  }
+  
+  return false;
+}
