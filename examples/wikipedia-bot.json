@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "default_command": "lookup",
+  "commands": [
+    {
+      "command": "start",
+      "actions": [
+        {
+          "type": "send_message",
+          "text": "Hi {user.first_name}! Send me any word or phrase and I'll look it up on Wikipedia."
+        }
+      ]
+    },
+    {
+      "command": "lookup",
+      "actions": [
+        {
+          "type": "request",
+          "url": "https://en.wikipedia.org/api/rest_v1/page/summary/{vars.text}",
+          "method": "GET",
+          "headers": { "User-Agent": "PrimoPopBot/1.0" },
+          "assign": "result",
+          "on_error": "ignore"
+        },
+        {
+          "type": "condition",
+          "var": "result",
+          "equals": null,
+          "then": [
+            {
+              "type": "send_message",
+              "text": "Couldn't find a page for \"{vars.text}\" — try a different spelling."
+            }
+          ],
+          "else": [
+            {
+              "type": "log_event",
+              "name": "wiki_search",
+              "value": "{vars.text}"
+            },
+            {
+              "type": "send_message",
+              "text": "*{vars.result.title}*\n\n{vars.result.extract}\n\n{vars.result.content_urls.desktop.page}",
+              "parse_mode": "Markdown"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

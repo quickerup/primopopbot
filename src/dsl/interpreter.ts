@@ -24,7 +24,8 @@ export interface RunContext {
   chatId: number;
   user: { id: number; first_name: string; username?: string };
   secrets: SecretsMap;
-  requestAllowlist: string[]; // hostnames permitted for `request` on PUBLIC bots
+  requestAllowlist: string[];
+  analyticsDb?: D1Database; // optional — only present when the binding exists
 }
 
 export type RunResult = { status: "completed" } | { status: "paused"; prompt: string };
@@ -150,25 +151,33 @@ export async function runActions(
         const url = renderTemplate(action.url, templateCtx(ctx, vars));
         const headers = action.headers ? (renderDeep(action.headers, templateCtx(ctx, vars)) as Record<string, string>) : undefined;
         const body = action.body ? renderDeep(action.body, templateCtx(ctx, vars)) : undefined;
-        const res = await fetch(url, {
-          method: action.method ?? "GET",
-          headers,
-          body: body !== undefined ? JSON.stringify(body) : undefined,
-        });
-        
-        if (!res.ok) {
-          throw new Error(`HTTP ${action.method ?? "GET"} ${url} failed: ${res.status} ${res.statusText}`);
-        }
-
-        let parsed: unknown = undefined;
         try {
-          parsed = await res.json();
-        } catch {
-          parsed = await res.text().catch(() => undefined);
-        }
-        const extracted = action.json_key ? getByDotPath(parsed, action.json_key) : parsed;
-        if (action.assign) {
-          vars = { ...vars, [action.assign]: extracted };
+          const res = await fetch(url, {
+            method: action.method ?? "GET",
+            headers,
+            body: body !== undefined ? JSON.stringify(body) : undefined,
+          });
+
+          if (!res.ok) {
+            throw new Error(`HTTP ${action.method ?? "GET"} ${url} failed: ${res.status} ${res.statusText}`);
+          }
+
+          let parsed: unknown = undefined;
+          try {
+            parsed = await res.json();
+          } catch {
+            parsed = await res.text().catch(() => undefined);
+          }
+          const extracted = action.json_key ? getByDotPath(parsed, action.json_key) : parsed;
+          if (action.assign) {
+            vars = { ...vars, [action.assign]: extracted };
+          }
+        } catch (err) {
+          if ((action.on_error ?? "throw") === "ignore") {
+            // Silently swallow the error; leave vars unchanged.
+            break;
+          }
+          throw err;
         }
         break;
       }
@@ -325,6 +334,19 @@ export async function runActions(
           command: command.command,
         });
         return { status: "paused", prompt };
+      }
+      case "log_event": {
+        if (ctx.analyticsDb) {
+          const value = renderTemplate(action.value, templateCtx(ctx, vars));
+          await ctx.analyticsDb
+            .prepare(
+              "INSERT INTO search_log (bot_id, event_name, value, chat_id, ts) VALUES (?, ?, ?, ?, ?)"
+            )
+            .bind(ctx.botId, action.name, value, ctx.chatId, Math.floor(Date.now() / 1000))
+            .run()
+            .catch(() => { /* best-effort — never fail a user-facing action for analytics */ });
+        }
+        break;
       }
     }
   }

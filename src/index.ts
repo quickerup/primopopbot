@@ -7,6 +7,7 @@ import { loadSecrets } from "./secrets";
 import { findCommand } from "./dsl/schema";
 import { runActions } from "./dsl/interpreter";
 import { BotConfig, BotRecord } from "./dsl/types";
+import { handleScheduled } from "./scheduled";
 
 export { ChatSession } from "./session.do";
 
@@ -107,6 +108,7 @@ app.post("/hook/:botId", async (c) => {
       user: { id: msg.from.id, first_name: msg.from.first_name, username: msg.from.username },
       secrets,
       requestAllowlist: allowlist,
+      analyticsDb: c.env.ANALYTICS_DB,
     };
 
     const text = (msg.text ?? "").trim();
@@ -126,15 +128,30 @@ app.post("/hook/:botId", async (c) => {
       return c.text("ok");
     }
 
-    if (!text.startsWith("/")) return c.text("ok"); // no free-text handling outside an ask flow
+    if (!text.startsWith("/")) {
+      // default_command: dispatch plain-text messages to a named command
+      // with the raw text available as {vars.text}.
+      if (config.default_command) {
+        const defCmd = findCommand(config, config.default_command);
+        if (defCmd) {
+          if (defCmd.admin_only && String(msg.from.id) !== String(record.ownerId)) {
+            return c.text("ok");
+          }
+          const vars = await session.getVars();
+          await runActions(runCtx, defCmd, defCmd.actions, 0, { ...vars, text });
+          return c.text("ok");
+        }
+      }
+      return c.text("ok"); // no free-text handling outside an ask flow or default_command
+    }
 
     const [cmdRaw] = text.slice(1).split(/\s+/);
-    const cmdName = cmdRaw.split("@")[0].toLowerCase(); // strip @botname suffix Telegram sometimes appends
+    const cmdName = cmdRaw.split("@")[0].toLowerCase();
     const cmdDef = findCommand(config, cmdName);
     if (!cmdDef) return c.text("ok");
 
     if (cmdDef.admin_only && String(msg.from.id) !== String(record.ownerId)) {
-      return c.text("ok"); // silent drop, consistent with the rest of the security model
+      return c.text("ok");
     }
 
     const vars = await session.getVars();
@@ -157,4 +174,9 @@ app.post("/hook/:botId", async (c) => {
   }
 });
 
-export default app;
+export default {
+  fetch: app.fetch.bind(app),
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(handleScheduled(env));
+  },
+};

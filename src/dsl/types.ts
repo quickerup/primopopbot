@@ -25,7 +25,8 @@ export type ActionType =
   | "compute"
   | "sort_slice"
   | "condition"
-  | "ask";
+  | "ask"
+  | "log_event";
 
 // Action types that are never allowed in a config saved against a PUBLIC
 // bot. `request` is conditionally dangerous (SSRF/open-proxy risk) so it's
@@ -110,7 +111,8 @@ export interface RequestAction extends BaseAction {
   headers?: Record<string, string>;
   body?: unknown;
   json_key?: string; // dot-path into the response JSON to extract, e.g. "data.items"
-  assign?: string; // variable name to store the (possibly extracted) result into
+  assign?: string;   // variable name to store the (possibly extracted) result into
+  on_error?: "throw" | "ignore"; // default: "throw"
 }
 
 export interface SetVariableAction extends BaseAction {
@@ -174,6 +176,12 @@ export interface AskAction extends BaseAction {
   assign: string; // variable name the next free-text reply gets written to
 }
 
+export interface LogEventAction extends BaseAction {
+  type: "log_event";
+  name: string;  // event name, e.g. "wiki_search"
+  value: string; // value to record — supports {vars.*} placeholders
+}
+
 export type Action =
   | SendMessageAction
   | SendPhotoAction
@@ -189,7 +197,8 @@ export type Action =
   | ComputeAction
   | SortSliceAction
   | ConditionAction
-  | AskAction;
+  | AskAction
+  | LogEventAction;
 
 export interface CommandDef {
   command: string; // without leading slash
@@ -200,6 +209,9 @@ export interface CommandDef {
 
 export interface BotConfig {
   version: number;
+  // If set, plain-text messages that don't start with / (and aren't mid-ask)
+  // are dispatched to this command with the raw text available as {vars.text}.
+  default_command?: string;
   commands: CommandDef[];
 }
 

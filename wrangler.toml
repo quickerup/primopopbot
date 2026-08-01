@@ -3,6 +3,9 @@ main = "src/index.ts"
 compatibility_date = "2026-07-31"
 compatibility_flags = ["nodejs_compat"]
 
+[triggers]
+crons = ["0 9 * * MON"]
+
 # ---------------------------------------------------------------------------
 # KV namespace: bot registry, configs, secrets blobs, short-TTL "pending" state
 # Create with:
@@ -47,3 +50,8 @@ FACTORY_OWNER_ID = "8492548344"
 # actions on public bots (safest default). Private bots are not restricted
 # by this list, since only the owner can drive them.
 PUBLIC_REQUEST_ALLOWLIST = "en.wikipedia.org"
+
+[[d1_databases]]
+binding = "ANALYTICS_DB"
+database_name = "primopop-analytics"
+database_id = "3b003796-6f87-42cd-af0a-e2d605ebd1c3"
