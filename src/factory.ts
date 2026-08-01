@@ -23,7 +23,7 @@ interface PendingFactoryState {
     | "awaiting_newbot_token"
     | "newbot_visibility"
     | "awaiting_config_json"
-    | "awaiting_config_file" // not purely text, but we check if msg has document
+    | "awaiting_config_file"
     | "awaiting_secret_name"
     | "awaiting_secret_value"
     | "awaiting_ai_prompt"
@@ -37,6 +37,7 @@ interface PendingFactoryState {
   commandIndex?: number;
   actionIndex?: number;
   field?: string;
+  jsonBuffer?: string; // accumulated text for multi-message JSON configs
 }
 
 async function getPending(env: Env, chatId: number): Promise<PendingFactoryState | null> {
@@ -404,9 +405,36 @@ async function continuePendingFlow(env: Env, req: Request, tg: TelegramClient, m
   }
 
   if (pending.kind === "awaiting_config_json") {
-    await cmdJsonInline(env, tg, chatId, pending.botId, text);
-    await clearPending(env, chatId);
-    await showBotMenu(env, tg, chatId, pending.botId!);
+    // Accumulate across multiple messages until we have valid JSON.
+    // User can also send "done" on its own to force a parse attempt.
+    const buffer = ((pending.jsonBuffer ?? "") + text).trim();
+
+    // Safety cap — 50 KB is more than enough for any config
+    if (buffer.length > 50_000) {
+      await clearPending(env, chatId);
+      await tg.sendMessage(chatId, "❌ Config too large (over 50 KB). Please use the file upload option instead.");
+      return true;
+    }
+
+    // Try to parse what we have so far
+    let parsed: unknown;
+    let valid = false;
+    try {
+      parsed = JSON.parse(buffer);
+      valid = true;
+    } catch {
+      // Not valid JSON yet — keep buffering
+    }
+
+    if (valid) {
+      await clearPending(env, chatId);
+      await saveConfigOrReject(env, tg, chatId, pending.botId!, parsed);
+      await showBotMenu(env, tg, chatId, pending.botId!);
+    } else {
+      // Save the accumulated buffer and wait for the next message chunk
+      await setPending(env, chatId, { ...pending, jsonBuffer: buffer });
+      await tg.sendMessage(chatId, `📎 Got it — buffer is now ${buffer.length} chars. Send the next chunk, or /cancel to abort.`);
+    }
     return true;
   }
 
