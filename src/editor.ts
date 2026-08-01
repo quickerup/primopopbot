@@ -218,6 +218,7 @@ export async function handleEditorCallback(env: Env, req: Request, tg: TelegramC
   } else if (action === "schedcmd") {
     const command = parts[3];
     // Friendly frequency picker — no cron syntax needed
+    // IMPORTANT: order must stay stable — the handler uses the index to look up type+expr
     const FREQS: Array<[string, string, string]> = [
       ["Every 10 sec",   "interval", "10"],
       ["Every 30 sec",   "interval", "30"],
@@ -232,14 +233,12 @@ export async function handleEditorCallback(env: Env, req: Request, tg: TelegramC
       ["Once a week",    "cron",     "0 9 * * MON"],
       ["Once a month",   "cron",     "0 9 1 * *"],
     ];
-    // 2 per row for readability; cb: editor:schedfreq:botId:command:type:expr
+    // Use index in callback_data to stay well under Telegram's 64-byte limit
     const rows: any[][] = [];
     for (let i = 0; i < FREQS.length; i += 2) {
       const row: any[] = [];
       for (let j = i; j < Math.min(i + 2, FREQS.length); j++) {
-        const [label, type, expr] = FREQS[j];
-        // encode expr to avoid colon collisions — use | as separator for expr part
-        row.push({ text: label, callback_data: `editor:schedfreq:${botId}:${command}:${type}:${encodeURIComponent(expr)}` });
+        row.push({ text: FREQS[j][0], callback_data: `editor:schedfreq:${botId}:${command}:${j}` });
       }
       rows.push(row);
     }
@@ -247,16 +246,35 @@ export async function handleEditorCallback(env: Env, req: Request, tg: TelegramC
     rows.push([{ text: "🔙 Cancel", callback_data: `editor:scheds:${botId}` }]);
     await tg.sendMessageWithInlineKeyboard(chatId, `How often should <b>/${command}</b> run?`, rows, { parse_mode: "HTML" });
   } else if (action === "schedfreq") {
-    // Direct save — no text input needed
+    // Look up type+expr by index — keeps callback_data short
+    const FREQS: Array<[string, string, string]> = [
+      ["Every 10 sec",   "interval", "10"],
+      ["Every 30 sec",   "interval", "30"],
+      ["Every 1 min",    "interval", "60"],
+      ["Every 5 min",    "interval", "300"],
+      ["Every 15 min",   "interval", "900"],
+      ["Every 30 min",   "cron",     "*/30 * * * *"],
+      ["Every hour",     "cron",     "0 * * * *"],
+      ["Every 6 hours",  "cron",     "0 */6 * * *"],
+      ["Every 12 hours", "cron",     "0 */12 * * *"],
+      ["Once a day",     "cron",     "0 9 * * *"],
+      ["Once a week",    "cron",     "0 9 * * MON"],
+      ["Once a month",   "cron",     "0 9 1 * *"],
+    ];
     const command = parts[3];
-    const type = parts[4];
-    const expr = decodeURIComponent(parts[5]);
-    const id = crypto.randomUUID().slice(0, 8);
-    await env.ANALYTICS_DB?.prepare("INSERT INTO bot_schedules (id, bot_id, command, type, expression) VALUES (?, ?, ?, ?, ?)")
-      .bind(id, botId, command, type, expr)
-      .run();
-    await tg.sendMessage(chatId, `✅ Schedule saved!`);
-    await showSchedulesMenu(env, tg, chatId, botId);
+    const freqIdx = parseInt(parts[4]);
+    const freq = FREQS[freqIdx];
+    if (!freq) {
+      await tg.sendMessage(chatId, "❌ Unknown frequency selection.");
+    } else {
+      const [, type, expr] = freq;
+      const id = crypto.randomUUID().slice(0, 8);
+      await env.ANALYTICS_DB?.prepare("INSERT INTO bot_schedules (id, bot_id, command, type, expression) VALUES (?, ?, ?, ?, ?)")
+        .bind(id, botId, command, type, expr)
+        .run();
+      await tg.sendMessage(chatId, `✅ Schedule saved!`);
+      await showSchedulesMenu(env, tg, chatId, botId);
+    }
   } else if (action === "schedtype") {
     // Only reached for one-off now
     const command = parts[3];
