@@ -244,6 +244,10 @@ export async function runActions(
             const asField = action.as ?? "result";
             const result = source.map((item, index) => {
               const scope: Record<string, number> = { index };
+              // Inject numeric vars so per-item expressions can reference scalars like max_val
+              for (const [k, v] of Object.entries(vars)) {
+                if (typeof v === "number") scope[k] = v;
+              }
               if (item && typeof item === "object") {
                 for (const [k, v] of Object.entries(item as Record<string, unknown>)) {
                   if (typeof v === "number") scope[k] = v;
@@ -393,6 +397,22 @@ export async function runActions(
           })
         );
         vars = { ...vars, [action.assign]: lines.join(joinWith) };
+        break;
+      }
+      case "aggregate": {
+        const source = vars[action.source];
+        const items = Array.isArray(source) ? source : [];
+        const nums = items
+          .map((it) => getByDotPath(it, action.field))
+          .filter((v): v is number => typeof v === "number");
+        let result = 0;
+        if (action.op === "count") result = nums.length;
+        else if (nums.length === 0) result = 0;
+        else if (action.op === "max") result = Math.max(...nums);
+        else if (action.op === "min") result = Math.min(...nums);
+        else if (action.op === "sum") result = nums.reduce((a, b) => a + b, 0);
+        else result = nums.reduce((a, b) => a + b, 0) / nums.length; // avg
+        vars = { ...vars, [action.assign]: result };
         break;
       }
     }

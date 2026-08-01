@@ -29,7 +29,8 @@ export type ActionType =
   | "log_event"
   | "pick_random"
   | "pick_unseen"
-  | "format_list";
+  | "format_list"
+  | "aggregate";
 
 // Action types that are never allowed in a config saved against a PUBLIC
 // bot. `request` is conditionally dangerous (SSRF/open-proxy risk) so it's
@@ -208,6 +209,14 @@ export interface FormatListAction extends BaseAction {
   assign: string;        // receives the joined string
 }
 
+export interface AggregateAction extends BaseAction {
+  type: "aggregate";
+  source: string;
+  field: string;
+  op: "max" | "min" | "sum" | "avg" | "count";
+  assign: string;
+}
+
 export type Action =
   | SendMessageAction
   | SendPhotoAction
@@ -227,7 +236,8 @@ export type Action =
   | LogEventAction
   | PickRandomAction
   | PickUnseenAction
-  | FormatListAction;
+  | FormatListAction
+  | AggregateAction;
 
 export interface CommandDef {
   command: string; // without leading slash

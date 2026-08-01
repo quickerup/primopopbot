@@ -22,6 +22,7 @@ const VALID_ACTION_TYPES = new Set([
   "pick_random",
   "pick_unseen",
   "format_list",
+  "aggregate",
 ]);
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
@@ -105,6 +106,14 @@ function validateAction(a: unknown, path: string): void {
     if (typeof f.source !== "string") throw new SchemaError(`${path}.source is required`);
     if (typeof f.item_template !== "string") throw new SchemaError(`${path}.item_template is required`);
     if (typeof f.assign !== "string") throw new SchemaError(`${path}.assign is required`);
+  }
+
+  if (type === "aggregate") {
+    const g = a as any;
+    if (typeof g.source !== "string") throw new SchemaError(`${path}.source is required`);
+    if (typeof g.field !== "string") throw new SchemaError(`${path}.field is required`);
+    if (!["max","min","sum","avg","count"].includes(g.op)) throw new SchemaError(`${path}.op is invalid`);
+    if (typeof g.assign !== "string") throw new SchemaError(`${path}.assign is required`);
   }
   if (type === "request") {
     const r = a as any;
