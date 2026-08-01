@@ -380,6 +380,21 @@ export async function runActions(
         };
         break;
       }
+      case "format_list": {
+        const source = vars[action.source];
+        const items = Array.isArray(source) ? source : [];
+        const joinWith = action.join_with ?? "\n";
+        const lines = items.map((item, index) =>
+          action.item_template.replace(/\{([a-zA-Z_][a-zA-Z0-9_.]*)\}/g, (_m, p) => {
+            if (p === "index") return String(index + 1);
+            const val = getByDotPath(item, p);
+            if (val === undefined || val === null) return "";
+            return String(val);
+          })
+        );
+        vars = { ...vars, [action.assign]: lines.join(joinWith) };
+        break;
+      }
     }
   }
 

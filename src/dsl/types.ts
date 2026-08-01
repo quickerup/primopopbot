@@ -28,7 +28,8 @@ export type ActionType =
   | "ask"
   | "log_event"
   | "pick_random"
-  | "pick_unseen";
+  | "pick_unseen"
+  | "format_list";
 
 // Action types that are never allowed in a config saved against a PUBLIC
 // bot. `request` is conditionally dangerous (SSRF/open-proxy risk) so it's
@@ -199,6 +200,14 @@ export interface PickUnseenAction extends BaseAction {
   exhausted_flag?: string; // var set true/false; defaults to `${assign}_exhausted`
 }
 
+export interface FormatListAction extends BaseAction {
+  type: "format_list";
+  source: string;
+  item_template: string; // {field} pulls from each item; {index} is 1-based position
+  join_with?: string;    // default "\n"
+  assign: string;        // receives the joined string
+}
+
 export type Action =
   | SendMessageAction
   | SendPhotoAction
@@ -217,7 +226,8 @@ export type Action =
   | AskAction
   | LogEventAction
   | PickRandomAction
-  | PickUnseenAction;
+  | PickUnseenAction
+  | FormatListAction;
 
 export interface CommandDef {
   command: string; // without leading slash
