@@ -3,9 +3,6 @@ main = "src/index.ts"
 compatibility_date = "2026-07-31"
 compatibility_flags = ["nodejs_compat"]
 
-[triggers]
-crons = ["0 9 * * MON"]
-
 # ---------------------------------------------------------------------------
 # KV namespace: bot registry, configs, secrets blobs, short-TTL "pending" state
 # Create with:
@@ -16,6 +13,9 @@ crons = ["0 9 * * MON"]
 kv_namespaces = [
   { binding = "BOT_KV", id = "bdde911c644c4de7ae4c78374c649105", preview_id = "59b4e85c186244ca9228e93f9644118c" }
 ]
+
+[triggers]
+crons = ["0 9 * * MON"]
 
 # ---------------------------------------------------------------------------
 # Durable Object: one ChatSession instance per "botId:chatId" pair.
