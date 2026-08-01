@@ -277,7 +277,7 @@ export async function handleEditorMessage(env: Env, tg: TelegramClient, msg: TgM
         return true;
       }
     }
-    const id = crypto.randomUUID();
+    const id = crypto.randomUUID().slice(0, 8);
     await env.ANALYTICS_DB?.prepare("INSERT INTO bot_schedules (id, bot_id, command, type, expression) VALUES (?, ?, ?, ?, ?)")
       .bind(id, pending.botId, command, type, text)
       .run();
