@@ -162,8 +162,8 @@ export interface SortSliceAction extends BaseAction {
 export interface ConditionAction extends BaseAction {
   type: "condition";
   var: string;
-  equals?: string | number | boolean;
-  not_equals?: string | number | boolean;
+  equals?: string | number | boolean | null;
+  not_equals?: string | number | boolean | null;
   gt?: number;
   lt?: number;
   then: Action[];

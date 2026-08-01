@@ -298,7 +298,7 @@ export async function runActions(
         break;
       }
       case "condition": {
-        const val = vars[action.var];
+        const val = vars[action.var] ?? null;
         let matched = false;
         if (action.equals !== undefined) matched = val === action.equals;
         else if (action.not_equals !== undefined) matched = val !== action.not_equals;
