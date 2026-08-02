@@ -28,7 +28,7 @@ export interface RunContext {
   analyticsDb?: D1Database; // optional — only present when the binding exists
 }
 
-export type RunResult = { status: "completed" } | { status: "paused"; prompt: string };
+export type RunResult = { status: "completed"; vars: Record<string, unknown> } | { status: "paused"; prompt: string };
 
 function checkWhen(action: Action, vars: Record<string, unknown>): boolean {
   if (!action.when) return true;
@@ -319,11 +319,7 @@ export async function runActions(
             // on nested-ask configs by design simplicity — documented below.
             return result;
           }
-          // Pull any vars the nested branch set back into our scope. Since
-          // runActions works on copies, re-fetch from the DO once at the
-          // end of the whole top-level call instead of threading returns
-          // through every branch; simplest correct approach given DO vars
-          // are flushed centrally in the caller (see index.ts).
+          vars = result.vars;
         }
         break;
       }
@@ -420,5 +416,5 @@ export async function runActions(
 
   await ctx.session.mergeVars(vars);
   await ctx.session.clearPending();
-  return { status: "completed" };
+  return { status: "completed", vars };
 }
