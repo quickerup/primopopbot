@@ -81,16 +81,36 @@ app.post("/hook/:botId", async (c) => {
 
   const record = JSON.parse(recordRaw) as BotRecord;
   const update = (await c.req.json()) as TgUpdate;
-  const msg = update.message;
-  if (!msg || !msg.from) return c.text("ok"); // only plain messages are handled by the DSL runner
+
+  let msg = update.message;
+  let fromUser = msg?.from;
+  let text = (msg?.text ?? "").trim();
+  let isCallback = false;
+
+  if (update.callback_query) {
+    isCallback = true;
+    msg = update.callback_query.message;
+    fromUser = update.callback_query.from;
+    text = (update.callback_query.data ?? "").trim();
+  }
+
+  if (!msg || !fromUser) return c.text("ok");
 
   // Private bots: owner-only, silent drop for everyone else so probing the
   // bot reveals nothing (still 200 OK, no reply).
-  if (record.visibility === "private" && String(msg.from.id) !== String(record.ownerId)) {
+  if (record.visibility === "private" && String(fromUser.id) !== String(record.ownerId)) {
     return c.text("ok");
   }
 
   const tg = new TelegramClient(record.token);
+  if (isCallback && update.callback_query) {
+    try {
+      await tg.answerCallbackQuery(update.callback_query.id);
+    } catch (err) {
+      console.error("Failed to answer callback query:", err);
+    }
+  }
+
   try {
     const configRaw = await c.env.BOT_KV.get(`config:${botId}`);
     const config = configRaw ? (JSON.parse(configRaw) as BotConfig) : { version: 1, commands: [] };
@@ -105,13 +125,11 @@ app.post("/hook/:botId", async (c) => {
       botId,
       visibility: record.visibility,
       chatId: msg.chat.id,
-      user: { id: msg.from.id, first_name: msg.from.first_name, username: msg.from.username },
+      user: { id: fromUser.id, first_name: fromUser.first_name, username: fromUser.username },
       secrets,
       requestAllowlist: allowlist,
       analyticsDb: c.env.ANALYTICS_DB,
     };
-
-    const text = (msg.text ?? "").trim();
 
     // Resume a paused `ask` flow if one is in progress for this chat, and the
     // incoming message isn't itself a new slash command.
@@ -129,12 +147,28 @@ app.post("/hook/:botId", async (c) => {
     }
 
     if (!text.startsWith("/")) {
+      // For callback queries, we can also match the entire data string as a command name
+      if (isCallback) {
+        const [cmdRaw] = text.split(/\s+/);
+        const cmdName = cmdRaw.split("@")[0].toLowerCase();
+        const cmdDef = findCommand(config, cmdName);
+        if (cmdDef) {
+          if (cmdDef.admin_only && String(fromUser.id) !== String(record.ownerId)) {
+            return c.text("ok");
+          }
+          const vars = await session.getVars();
+          const commandArgs = text.slice(cmdRaw.length).trim();
+          await runActions(runCtx, cmdDef, cmdDef.actions, 0, { ...vars, text: commandArgs });
+          return c.text("ok");
+        }
+      }
+
       // default_command: dispatch plain-text messages to a named command
       // with the raw text available as {vars.text}.
       if (config.default_command) {
         const defCmd = findCommand(config, config.default_command);
         if (defCmd) {
-          if (defCmd.admin_only && String(msg.from.id) !== String(record.ownerId)) {
+          if (defCmd.admin_only && String(fromUser.id) !== String(record.ownerId)) {
             return c.text("ok");
           }
           const vars = await session.getVars();
@@ -150,12 +184,13 @@ app.post("/hook/:botId", async (c) => {
     const cmdDef = findCommand(config, cmdName);
     if (!cmdDef) return c.text("ok");
 
-    if (cmdDef.admin_only && String(msg.from.id) !== String(record.ownerId)) {
+    if (cmdDef.admin_only && String(fromUser.id) !== String(record.ownerId)) {
       return c.text("ok");
     }
 
     const vars = await session.getVars();
-    await runActions(runCtx, cmdDef, cmdDef.actions, 0, vars);
+    const commandArgs = text.slice(1 + cmdRaw.length).trim();
+    await runActions(runCtx, cmdDef, cmdDef.actions, 0, { ...vars, text: commandArgs });
     return c.text("ok");
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);

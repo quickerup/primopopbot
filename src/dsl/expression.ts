@@ -121,7 +121,7 @@ class Evaluator {
 
   private parseAddSub(): number {
     let left = this.parseMulDiv();
-    while (this.peek()?.kind === "op" && (this.peek() as any).value in { "+": 1, "-": 1 }) {
+    while (this.peek()?.kind === "op" && ["+", "-"].includes((this.peek() as any).value)) {
       const op = (this.next() as any).value;
       const right = this.parseMulDiv();
       left = op === "+" ? left + right : left - right;
@@ -138,7 +138,10 @@ class Evaluator {
       else if (op === "/") {
         if (right === 0) throw new ExpressionError("Division by zero");
         left = left / right;
-      } else left = left % right;
+      } else {
+        if (right === 0) throw new ExpressionError("Division by zero");
+        left = left % right;
+      }
     }
     return left;
   }
@@ -192,7 +195,7 @@ class Evaluator {
         if (close.kind !== "rparen") throw new ExpressionError("Expected ')' after function args");
         return fn(...args);
       }
-      if (!(t.value in this.scope)) {
+      if (!Object.prototype.hasOwnProperty.call(this.scope, t.value)) {
         throw new ExpressionError(`Unknown variable in expression: ${t.value}`);
       }
       const v = this.scope[t.value];

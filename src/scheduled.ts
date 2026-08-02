@@ -106,7 +106,7 @@ async function runBotSchedules(event: ScheduledEvent, env: Env): Promise<void> {
       }, cmdDef, cmdDef.actions, 0, vars);
 
       await env.ANALYTICS_DB.prepare("UPDATE bot_schedules SET last_run = ? WHERE id = ?")
-        .bind(Math.floor(Date.now() / 1000), row.id)
+        .bind(Math.floor(now / 1000), row.id)
         .run();
 
     } catch (err) {
