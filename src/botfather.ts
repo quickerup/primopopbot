@@ -46,6 +46,7 @@ export class WebTelegramClientApi {
     const res = await fetch(this.config.endpoint, {
       method: "POST",
       headers: { "content-type": "application/json" },
+      signal: AbortSignal.timeout(10_000),
       body: JSON.stringify({
         method,
         params,
