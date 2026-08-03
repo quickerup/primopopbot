@@ -23,6 +23,9 @@ const VALID_ACTION_TYPES = new Set([
   "pick_unseen",
   "format_list",
   "aggregate",
+  "telegram_api",
+  "ton_connect",
+  "ton_sign",
 ]);
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
@@ -118,6 +121,39 @@ function validateAction(a: unknown, path: string): void {
   if (type === "request") {
     const r = a as any;
     if (typeof r.url !== "string") throw new SchemaError(`${path}.url is required`);
+  }
+
+  if (type === "ton_connect") {
+    const t = a as any;
+    if (![undefined, "mainnet", "testnet"].includes(t.network)) throw new SchemaError(`${path}.network must be mainnet or testnet`);
+    if (typeof t.manifest_url !== "string") throw new SchemaError(`${path}.manifest_url is required`);
+    for (const f of ["ton_proof", "wallet_universal_url", "return_url", "text", "button_text", "assign"]) {
+      if (t[f] !== undefined && typeof t[f] !== "string") throw new SchemaError(`${path}.${f} must be a string`);
+    }
+  }
+
+  if (type === "ton_sign") {
+    const t = a as any;
+    if (![undefined, "mainnet", "testnet"].includes(t.network)) throw new SchemaError(`${path}.network must be mainnet or testnet`);
+    if (typeof t.signing_url !== "string") throw new SchemaError(`${path}.signing_url is required`);
+    if (typeof t.payload !== "string") throw new SchemaError(`${path}.payload is required`);
+    if (![undefined, "text", "binary", "cell"].includes(t.payload_type)) throw new SchemaError(`${path}.payload_type must be text, binary, or cell`);
+    for (const f of ["return_url", "state", "text", "button_text", "assign"]) {
+      if (t[f] !== undefined && typeof t[f] !== "string") throw new SchemaError(`${path}.${f} must be a string`);
+    }
+  }
+
+  if (type === "telegram_api") {
+    const t = a as any;
+    if (typeof t.method !== "string" || !/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(t.method)) {
+      throw new SchemaError(`${path}.method must be a Telegram Bot API method name`);
+    }
+    if (t.payload !== undefined && !isPlainObject(t.payload)) {
+      throw new SchemaError(`${path}.payload must be an object when provided`);
+    }
+    if (t.assign !== undefined && typeof t.assign !== "string") {
+      throw new SchemaError(`${path}.assign must be a string when provided`);
+    }
   }
 }
 

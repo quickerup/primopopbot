@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "commands": [
+    {
+      "command": "start",
+      "description": "Show an interface powered by raw Telegram APIs",
+      "actions": [
+        {
+          "type": "send_message",
+          "text": "I can use first-class DSL actions, plus raw Telegram Bot API methods when you need an interface this DSL has not wrapped yet. Try /venue or /action."
+        }
+      ]
+    },
+    {
+      "command": "venue",
+      "description": "Send a venue through telegram_api",
+      "actions": [
+        {
+          "type": "telegram_api",
+          "method": "sendVenue",
+          "payload": {
+            "latitude": 40.758,
+            "longitude": -73.9855,
+            "title": "Example meetup point",
+            "address": "Times Square, New York, NY"
+          }
+        }
+      ]
+    },
+    {
+      "command": "action",
+      "description": "Trigger a typing indicator through telegram_api",
+      "actions": [
+        {
+          "type": "telegram_api",
+          "method": "sendChatAction",
+          "payload": {
+            "action": "typing"
+          }
+        },
+        {
+          "type": "send_message",
+          "text": "That typing indicator came from a generic Telegram API call."
+        }
+      ]
+    }
+  ]
+}

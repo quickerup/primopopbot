@@ -15,6 +15,7 @@ import { Action, BotConfig, CommandDef } from "./types";
 import { renderTemplate, renderDeep, TemplateContext, getByDotPath } from "./template";
 import { evaluateExpression, ExpressionError } from "./expression";
 import { SecretsMap } from "../secrets";
+import { buildTonConnectLink, buildTonSignLink, normalizeTonNetwork, renderTonTemplate } from "../ton";
 
 export interface RunContext {
   tg: TelegramClient;
@@ -409,6 +410,56 @@ export async function runActions(
         else if (action.op === "sum") result = nums.reduce((a, b) => a + b, 0);
         else result = nums.reduce((a, b) => a + b, 0) / nums.length; // avg
         vars = { ...vars, [action.assign]: result };
+        break;
+      }
+      case "telegram_api": {
+        const payload = action.payload
+          ? (renderDeep(action.payload, templateCtx(ctx, vars)) as Record<string, unknown>)
+          : {};
+        const result = await ctx.tg.callApi(action.method, {
+          chat_id: ctx.chatId,
+          ...payload,
+        });
+        if (action.assign) {
+          vars = { ...vars, [action.assign]: result };
+        }
+        break;
+      }
+      case "ton_connect": {
+        const tctx = templateCtx(ctx, vars);
+        const network = normalizeTonNetwork(action.network);
+        const link = await buildTonConnectLink({
+          network,
+          manifestUrl: renderTemplate(action.manifest_url, tctx),
+          returnUrl: renderTonTemplate(action.return_url, tctx),
+          tonProof: renderTonTemplate(action.ton_proof, tctx),
+          walletUniversalUrl: renderTonTemplate(action.wallet_universal_url, tctx),
+        });
+        if (action.assign) vars = { ...vars, [action.assign]: link };
+        await ctx.tg.sendMessageWithInlineKeyboard(
+          ctx.chatId,
+          action.text ? renderTemplate(action.text, tctx) : `Connect your TON wallet (${network})`,
+          [[{ text: action.button_text ?? "Connect TON wallet", url: link }]]
+        );
+        break;
+      }
+      case "ton_sign": {
+        const tctx = templateCtx(ctx, vars);
+        const network = normalizeTonNetwork(action.network);
+        const link = buildTonSignLink({
+          network,
+          signingUrl: renderTemplate(action.signing_url, tctx),
+          payload: renderTemplate(action.payload, tctx),
+          payloadType: action.payload_type,
+          returnUrl: renderTonTemplate(action.return_url, tctx),
+          state: renderTonTemplate(action.state, tctx),
+        });
+        if (action.assign) vars = { ...vars, [action.assign]: link };
+        await ctx.tg.sendMessageWithInlineKeyboard(
+          ctx.chatId,
+          action.text ? renderTemplate(action.text, tctx) : `Sign this TON request (${network})`,
+          [[{ text: action.button_text ?? "Sign with TON wallet", url: link }]]
+        );
         break;
       }
     }

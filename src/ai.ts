@@ -55,6 +55,12 @@ send_keyboard:
 condition:
 { "type": "condition", "var": "varname", "equals": "expected", "then": [...actions...], "else": [...actions...] }
 
+ton_connect (TON Connect wallet link; network defaults to mainnet):
+{ "type": "ton_connect", "network": "mainnet", "manifest_url": "https://example.com/tonconnect-manifest.json", "ton_proof": "login:{user.id}", "text": "Connect your TON wallet", "button_text": "Connect wallet" }
+
+ton_sign (open your HTTPS signing page with a payload for wallet-side signing):
+{ "type": "ton_sign", "network": "testnet", "signing_url": "https://example.com/ton-sign", "payload_type": "text", "payload": "Sign this for {user.id}", "state": "telegram:{chat.id}", "text": "Sign with your TON wallet", "button_text": "Sign" }
+
 Placeholders usable in any string field: {user.id}, {user.first_name}, {chat.id}, {vars.NAME}
 
 EXAMPLE — Wikipedia summary command:

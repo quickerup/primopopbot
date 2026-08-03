@@ -74,10 +74,12 @@ or without a file:
 /json mychildbot {"version":1,"commands":[{"command":"start","actions":[{"type":"send_message","text":"hi {user.first_name}"}]}]}
 ```
 
-Two starter configs are in `examples/`:
+Starter configs are in `examples/`:
 - `simple-public-bot.json` — dice, poll, and an `ask`-based name-capture flow.
 - `price-tracker-bot.json` — `request` + `transform` + `sort_slice` for a
   top-movers list, and `compute` for a two-question margin calculator.
+- `interface-anything-bot.json` — shows the generic `telegram_api` action, which lets a bot config call Telegram Bot API methods that do not yet have first-class DSL wrappers.
+- `ton-wallet-bot.json` — shows TON Connect links for mainnet/testnet wallet connection and a wallet-side signing flow.
 
 Secrets (e.g. an API key a child bot's `request` actions need) are stored
 per-bot, AES-GCM-encrypted at rest:
@@ -101,6 +103,48 @@ GitHub Actions gateway needs three secrets on the special `factory` botId:
 /set_secret factory   → GITHUB_REPO
 ```
 then `/gh_workflows`, `/gh_runs`, `/gh_dispatch <workflow> [ref]`, etc. work.
+
+### Generic Telegram interfaces
+
+For Telegram features that are not yet first-class DSL actions, use
+`telegram_api`. It calls any Telegram Bot API method with a templated JSON
+payload, automatically filling `chat_id` with the current chat unless you
+provide one yourself:
+
+```json
+{
+  "type": "telegram_api",
+  "method": "sendVenue",
+  "payload": {
+    "latitude": 40.758,
+    "longitude": -73.9855,
+    "title": "Meet here",
+    "address": "Times Square, New York"
+  }
+}
+```
+
+If you set `assign`, the Telegram API result is stored in `vars` for later
+actions. This keeps the factory extensible: new Bot API surfaces can be used
+from JSON immediately, while common ones can still get friendly wrappers over
+time.
+
+### TON wallet and signing helpers
+
+The DSL includes TON-specific helpers for bots that need wallet UX on mainnet
+or testnet:
+
+- `ton_connect` builds a TON Connect v2 link, sends it as an inline button,
+  and can request `ton_proof` for wallet authentication. Use `network:
+  "mainnet"` or `network: "testnet"`; if omitted, mainnet is used.
+- `ton_sign` builds a signing URL for your HTTPS TON signing page with the
+  selected network, payload type (`text`, `binary`, or `cell`), payload,
+  return URL, and state. The wallet performs the signature; the bot never
+  receives or stores private keys.
+
+Both actions support placeholders such as `{user.id}`, `{chat.id}`,
+`{vars.some_value}`, and `{secrets.SOME_SECRET}` in URL and payload fields.
+Set `assign` to keep the generated link in `vars` for later actions.
 
 ## Architecture
 
