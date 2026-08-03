@@ -30,7 +30,10 @@ export type ActionType =
   | "pick_random"
   | "pick_unseen"
   | "format_list"
-  | "aggregate";
+  | "aggregate"
+  | "telegram_api"
+  | "ton_connect"
+  | "ton_sign";
 
 // Action types that are never allowed in a config saved against a PUBLIC
 // bot. `request` is conditionally dangerous (SSRF/open-proxy risk) so it's
@@ -217,6 +220,40 @@ export interface AggregateAction extends BaseAction {
   assign: string;
 }
 
+export interface TelegramApiAction extends BaseAction {
+  type: "telegram_api";
+  // Calls any Telegram Bot API method with a templated JSON payload. The
+  // current chat id is injected automatically when payload.chat_id is omitted.
+  method: string;
+  payload?: Record<string, unknown>;
+  assign?: string;
+}
+
+export interface TonConnectAction extends BaseAction {
+  type: "ton_connect";
+  network?: "mainnet" | "testnet";
+  manifest_url: string;
+  ton_proof?: string;
+  wallet_universal_url?: string;
+  return_url?: string;
+  text?: string;
+  button_text?: string;
+  assign?: string;
+}
+
+export interface TonSignAction extends BaseAction {
+  type: "ton_sign";
+  network?: "mainnet" | "testnet";
+  signing_url: string;
+  payload: string;
+  payload_type?: "text" | "binary" | "cell";
+  return_url?: string;
+  state?: string;
+  text?: string;
+  button_text?: string;
+  assign?: string;
+}
+
 export type Action =
   | SendMessageAction
   | SendPhotoAction
@@ -237,7 +274,10 @@ export type Action =
   | PickRandomAction
   | PickUnseenAction
   | FormatListAction
-  | AggregateAction;
+  | AggregateAction
+  | TelegramApiAction
+  | TonConnectAction
+  | TonSignAction;
 
 export interface CommandDef {
   command: string; // without leading slash

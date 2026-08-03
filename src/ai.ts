@@ -55,6 +55,16 @@ send_keyboard:
 condition:
 { "type": "condition", "var": "varname", "equals": "expected", "then": [...actions...], "else": [...actions...] }
 
+telegram_api (generic Telegram Bot API call):
+{ "type": "telegram_api", "method": "sendVenue", "payload": { "chat_id": "{chat.id}", "latitude": 40.758, "longitude": -73.9855, "title": "Meet here", "address": "Times Square" }, "assign": "telegram_result" }
+  - "method" is REQUIRED. "payload" is a templated object sent to Telegram. "assign" is optional.
+
+ton_connect (TON Connect wallet link; network defaults to mainnet):
+{ "type": "ton_connect", "network": "mainnet", "manifest_url": "https://example.com/tonconnect-manifest.json", "ton_proof": "login:{user.id}", "text": "Connect your TON wallet", "button_text": "Connect wallet" }
+
+ton_sign (open your HTTPS signing page with a payload for wallet-side signing):
+{ "type": "ton_sign", "network": "testnet", "signing_url": "https://example.com/ton-sign", "payload_type": "text", "payload": "Sign this for {user.id}", "state": "telegram:{chat.id}", "text": "Sign with your TON wallet", "button_text": "Sign" }
+
 Placeholders usable in any string field: {user.id}, {user.first_name}, {chat.id}, {vars.NAME}
 
 EXAMPLE — Wikipedia summary command:

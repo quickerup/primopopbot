@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "commands": [
+    {
+      "command": "start",
+      "description": "TON wallet entrypoint",
+      "actions": [
+        {
+          "type": "send_message",
+          "text": "TON tools ready. Try /connect_mainnet, /connect_testnet, or /sign_demo."
+        }
+      ]
+    },
+    {
+      "command": "connect_mainnet",
+      "description": "Connect a TON mainnet wallet",
+      "actions": [
+        {
+          "type": "ton_connect",
+          "network": "mainnet",
+          "manifest_url": "https://example.com/tonconnect-manifest.json",
+          "ton_proof": "login:{user.id}:{chat.id}",
+          "text": "Connect your TON mainnet wallet. The wallet keeps your keys; this bot only opens the TON Connect request.",
+          "button_text": "Connect mainnet wallet",
+          "assign": "ton_connect_url"
+        }
+      ]
+    },
+    {
+      "command": "connect_testnet",
+      "description": "Connect a TON testnet wallet",
+      "actions": [
+        {
+          "type": "ton_connect",
+          "network": "testnet",
+          "manifest_url": "https://example.com/tonconnect-manifest.json",
+          "ton_proof": "test-login:{user.id}:{chat.id}",
+          "text": "Connect your TON testnet wallet for sandbox flows.",
+          "button_text": "Connect testnet wallet"
+        }
+      ]
+    },
+    {
+      "command": "sign_demo",
+      "description": "Request a TON data signature through a signing page",
+      "actions": [
+        {
+          "type": "ton_sign",
+          "network": "testnet",
+          "signing_url": "https://example.com/ton-sign",
+          "payload_type": "text",
+          "payload": "I approve this demo for Telegram user {user.id}",
+          "state": "telegram:{chat.id}",
+          "text": "Open the signing flow. Your wallet signs; the bot never sees private keys.",
+          "button_text": "Sign demo payload",
+          "assign": "ton_sign_url"
+        }
+      ]
+    }
+  ]
+}
