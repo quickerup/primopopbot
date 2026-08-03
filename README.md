@@ -190,11 +190,6 @@ Telegram ──POST /hook/:botId───▶  Worker  ──▶ dsl/interpreter.
   - Configs are validated at `/setconfig`/`/json`/`/ai`-save time and
     **rejected outright** (not silently stripped) if they contain any
     action type disallowed on public bots.
-  - `request` actions are constrained to `PUBLIC_REQUEST_ALLOWLIST`
-    (comma-separated hostnames in `wrangler.toml [vars]`; the default includes
-    `api.telegram.org` for Telegram Bot API request actions) to prevent a
-    public bot being repurposed as an open HTTP proxy / SSRF vector. Empty
-    allowlist = all `request` actions blocked on public bots by default.
   - All `request` actions on public bots are token-bucket rate-limited per
     chat via the `ChatSession` Durable Object.
 - **`shell` and `python` action types do not exist in this DSL at all** —

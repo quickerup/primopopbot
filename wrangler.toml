@@ -28,9 +28,17 @@ crons = ["* * * * *", "0 9 * * MON"]
 name = "CHAT_SESSION"
 class_name = "ChatSession"
 
+[[durable_objects.bindings]]
+name = "TOKEN_GENERATION_QUEUE"
+class_name = "TokenGenerationQueue"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["ChatSession"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["TokenGenerationQueue"]
 
 # ---------------------------------------------------------------------------
 # Workers AI binding, used by /ai to draft DSL commands from a description.
@@ -45,11 +53,10 @@ binding = "AI"
 # ---------------------------------------------------------------------------
 [vars]
 FACTORY_OWNER_ID = "8492548344"
-# Comma-separated allowlist of hosts that `request` actions on PUBLIC child
-# bots are permitted to call. Leave empty to block all outbound `request`
-# actions on public bots (safest default). Private bots are not restricted
-# by this list, since only the owner can drive them.
-PUBLIC_REQUEST_ALLOWLIST = "en.wikipedia.org,www.googleapis.com,api.telegram.org"
+# Client API credentials for the BotFather automation HTTP/WebSocket bridge.
+# TELEGRAM_API_HASH and TELEGRAM_CLIENT_SESSION should normally be secrets.
+TELEGRAM_API_ID = ""
+TELEGRAM_CLIENT_API_ENDPOINT = ""
 
 [[d1_databases]]
 binding = "ANALYTICS_DB"

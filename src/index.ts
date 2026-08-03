@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { Env } from "./env";
 import { TelegramClient, TgUpdate } from "./telegram";
 import { handleFactoryMessage, handleFactoryCallback } from "./factory";
+import { enqueueTokenGeneration, TokenGenerationQueue } from "./botfather";
 import { SessionClient } from "./session-client";
 import { loadSecrets } from "./secrets";
 import { findCommand } from "./dsl/schema";
@@ -10,10 +11,30 @@ import { BotConfig, BotRecord } from "./dsl/types";
 import { handleScheduled } from "./scheduled";
 
 export { ChatSession } from "./session.do";
+export { TokenGenerationQueue };
 
 const app = new Hono<{ Bindings: Env }>();
 
 app.get("/", (c) => c.text("telegram-bot-factory: ok"));
+
+app.post("/factory/newbot", async (c) => {
+  const bearer = c.req.header("authorization")?.replace(/^Bearer\s+/i, "");
+  if (!c.env.TELEGRAM_WEBHOOK_SECRET || bearer !== c.env.TELEGRAM_WEBHOOK_SECRET) {
+    return c.text("forbidden", 403);
+  }
+  const body = (await c.req.json()) as { botName?: string; visibility?: "public" | "private" };
+  if (!body.botName) return c.text("botName is required", 400);
+  try {
+    const result = await enqueueTokenGeneration(c.env, c.req.raw as unknown as Request, {
+      requestedName: body.botName,
+      visibility: body.visibility ?? "private",
+      ownerId: c.env.FACTORY_OWNER_ID,
+    });
+    return c.json({ botId: result.botId, displayName: result.displayName, username: result.username, sequence: result.sequence, visibility: result.visibility });
+  } catch (err) {
+    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Shared webhook secret verification. Telegram echoes back whatever secret
@@ -38,6 +59,22 @@ app.post("/hook/factory", async (c) => {
   const senderId = update.message?.from?.id ?? update.callback_query?.from.id;
   const ownerId = c.env.FACTORY_OWNER_ID;
   if (!ownerId || String(senderId) !== String(ownerId)) {
+    const chatId = update.message?.chat.id ?? update.callback_query?.message?.chat.id;
+    if (chatId) {
+      try {
+        const record = await c.env.BOT_KV.get("bot:factory");
+        if (record) {
+          const { token } = JSON.parse(record) as BotRecord;
+          const tg = new TelegramClient(token);
+          await tg.sendMessage(
+            chatId,
+            "Sorry, this bot is not yours! If you would like one just like it that acts as a factory and is easily programmable within the bot interface, head over to https://github.com/quickerup/primopopbot to clone it and give the repo a star if you end up using it!"
+          );
+        }
+      } catch (err) {
+        console.error("Failed to send unauthorized greeting:", err);
+      }
+    }
     return c.text("ok"); // 200 OK, silent drop — reveals nothing to a prober
   }
 
@@ -117,8 +154,6 @@ app.post("/hook/:botId", async (c) => {
 
     const session = new SessionClient(c.env.CHAT_SESSION, botId, msg.chat.id);
     const secrets = await loadSecrets(c.env.BOT_KV, botId, c.env.SECRET_PASSPHRASE);
-    const allowlist = c.env.PUBLIC_REQUEST_ALLOWLIST.split(",").map((h) => h.trim()).filter(Boolean);
-
     const runCtx = {
       tg,
       session,
@@ -127,7 +162,6 @@ app.post("/hook/:botId", async (c) => {
       chatId: msg.chat.id,
       user: { id: fromUser.id, first_name: fromUser.first_name, username: fromUser.username },
       secrets,
-      requestAllowlist: allowlist,
       analyticsDb: c.env.ANALYTICS_DB,
     };
 
