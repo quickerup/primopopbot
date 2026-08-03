@@ -1,4 +1,3 @@
-```markdown
 <div align="center">
 
 <a target="_top" href="https://www.flamingtext.com/" ><img src="https://blog.flamingtext.com/blog/2026/08/03/flamingtext_com_1785727597_2804487.png" border="0" alt="Logo Design by FlamingText.com" title="Logo Design by FlamingText.com"></a>
