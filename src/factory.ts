@@ -5,6 +5,7 @@ import { validateConfigShape, assertSafeForPublicBot, SchemaError, findCommand }
 import { loadSecrets, saveSecrets } from "./secrets";
 import { generateCommandFromDescription } from "./ai";
 import { handleEditorCallback, handleEditorMessage } from "./editor";
+import { enqueueTokenGeneration } from "./botfather";
 import {
   listWorkflows,
   dispatchWorkflow,
@@ -21,6 +22,7 @@ const PENDING_TTL_SECONDS = 15 * 60;
 interface PendingFactoryState {
   kind: 
     | "awaiting_newbot_token"
+    | "awaiting_autonewbot"
     | "newbot_visibility"
     | "awaiting_config_json"
     | "awaiting_config_file"
@@ -103,6 +105,9 @@ export async function handleFactoryMessage(env: Env, req: Request, tg: TelegramC
     case "newbot":
       await cmdNewBot(env, req, tg, chatId, rest[0]);
       return;
+    case "autonewbot":
+      await cmdAutoNewBot(env, req, tg, chatId, argLine);
+      return;
     case "setconfig":
       await cmdSetConfigFromDocument(env, tg, chatId, msg, rest[0]);
       return;
@@ -169,6 +174,7 @@ export async function handleFactoryMessage(env: Env, req: Request, tg: TelegramC
 async function showMainMenu(tg: TelegramClient, chatId: number): Promise<void> {
   await tg.sendMessageWithInlineKeyboard(chatId, "🏭 <b>PrimoPopBot</b>\n\nWhat would you like to do?", [
     [{ text: "➕ Create New Bot", callback_data: "menu:new_bot" }],
+    [{ text: "⚙️ Auto-Generate Bot Token", callback_data: "menu:auto_new_bot" }],
     [{ text: "🤖 Manage Bots", callback_data: "menu:list_bots" }],
     [{ text: "🐙 GitHub Gateway", callback_data: "menu:gh" }]
   ], { parse_mode: "HTML" });
@@ -240,6 +246,9 @@ export async function handleFactoryCallback(env: Env, req: Request, tg: Telegram
     if (action === "new_bot") {
       await setPending(env, chatId, { kind: "awaiting_newbot_token" });
       await tg.sendMessage(chatId, "Send me the Bot Token from @BotFather to register your new bot.\n\n(Send /cancel to abort)");
+    } else if (action === "auto_new_bot") {
+      await setPending(env, chatId, { kind: "awaiting_autonewbot" });
+      await tg.sendMessage(chatId, "What should the bot be named?\n\nI'll automatically append a traceable Primo sequence suffix, like “My Demo Primo 01 Bot”, and generate the matching Telegram username.\n\n(Send /cancel to abort)");
     } else if (action === "list_bots") {
       const list = await env.BOT_KV.list({ prefix: "bot:" });
       if (!list.keys.length) {
@@ -404,6 +413,11 @@ async function continuePendingFlow(env: Env, req: Request, tg: TelegramClient, m
     return true; // cmdNewBot handles the state update to newbot_visibility
   }
 
+  if (pending.kind === "awaiting_autonewbot") {
+    await cmdAutoNewBot(env, req, tg, chatId, text);
+    return true;
+  }
+
   if (pending.kind === "awaiting_config_json") {
     // Accumulate across multiple messages until we have valid JSON.
     // User can also send "done" on its own to force a parse attempt.
@@ -481,6 +495,27 @@ async function continuePendingFlow(env: Env, req: Request, tg: TelegramClient, m
 // ---------------------------------------------------------------------------
 // Original command implementations (mostly intact, slightly modified for flow)
 // ---------------------------------------------------------------------------
+
+async function cmdAutoNewBot(env: Env, req: Request, tg: TelegramClient, chatId: number, input?: string): Promise<void> {
+  const requestedName = (input ?? "").trim();
+  if (!requestedName) {
+    await tg.sendMessage(chatId, "Usage: /autonewbot <bot display name>");
+    return;
+  }
+  await tg.sendMessage(chatId, "⏳ Asking @BotFather for a new token. I'll add the Primo sequence suffix automatically, and requests are serialized to avoid Telegram spam limits…");
+  try {
+    const result = await enqueueTokenGeneration(env, req, {
+      requestedName,
+      visibility: "private",
+      ownerId: String(chatId),
+    });
+    await clearPending(env, chatId);
+    await tg.sendMessage(chatId, `✅ ${result.displayName} (@${result.botId}) is live (${result.visibility}).`);
+    await showBotMenu(env, tg, chatId, result.botId);
+  } catch (err) {
+    await tg.sendMessage(chatId, `❌ Automated token generation failed: ${(err as Error).message}`);
+  }
+}
 
 async function cmdNewBot(env: Env, req: Request, tg: TelegramClient, chatId: number, token?: string): Promise<void> {
   if (!token) {

@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { Env } from "./env";
 import { TelegramClient, TgUpdate } from "./telegram";
 import { handleFactoryMessage, handleFactoryCallback } from "./factory";
+import { enqueueTokenGeneration, TokenGenerationQueue } from "./botfather";
 import { SessionClient } from "./session-client";
 import { loadSecrets } from "./secrets";
 import { findCommand } from "./dsl/schema";
@@ -10,10 +11,30 @@ import { BotConfig, BotRecord } from "./dsl/types";
 import { handleScheduled } from "./scheduled";
 
 export { ChatSession } from "./session.do";
+export { TokenGenerationQueue };
 
 const app = new Hono<{ Bindings: Env }>();
 
 app.get("/", (c) => c.text("telegram-bot-factory: ok"));
+
+app.post("/factory/newbot", async (c) => {
+  const bearer = c.req.header("authorization")?.replace(/^Bearer\s+/i, "");
+  if (!c.env.TELEGRAM_WEBHOOK_SECRET || bearer !== c.env.TELEGRAM_WEBHOOK_SECRET) {
+    return c.text("forbidden", 403);
+  }
+  const body = (await c.req.json()) as { botName?: string; visibility?: "public" | "private" };
+  if (!body.botName) return c.text("botName is required", 400);
+  try {
+    const result = await enqueueTokenGeneration(c.env, c.req.raw as unknown as Request, {
+      requestedName: body.botName,
+      visibility: body.visibility ?? "private",
+      ownerId: c.env.FACTORY_OWNER_ID,
+    });
+    return c.json({ botId: result.botId, displayName: result.displayName, username: result.username, sequence: result.sequence, visibility: result.visibility });
+  } catch (err) {
+    return c.json({ error: err instanceof Error ? err.message : String(err) }, 500);
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Shared webhook secret verification. Telegram echoes back whatever secret
