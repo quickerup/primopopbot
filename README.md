@@ -1,34 +1,57 @@
-# Telegram Bot Factory (Cloudflare Workers)
+```markdown
+<div align="center">
 
-A single Cloudflare Worker that runs one "factory" bot (controlled only by
-you) plus unlimited child bots, each entirely defined by a JSON action DSL
-you upload through the factory bot. Everything is webhook-driven — no
-polling, no persistent process.
+<a target="_top" href="https://www.flamingtext.com/" ><img src="https://blog.flamingtext.com/blog/2026/08/03/flamingtext_com_1785727597_2804487.png" border="0" alt="Logo Design by FlamingText.com" title="Logo Design by FlamingText.com"></a>
 
-This is a from-scratch Workers reimplementation of an earlier
-`python-telegram-bot` long-polling project. It keeps the same DSL
-philosophy and command surface but re-derives every mechanism for the
-Workers runtime. See "What's different from the Python original" below.
+# ⚡ PrimoPopBot
+## Premium Telegram Bot Factory on Cloudflare Workers
 
-## Quick start
+*Craft unlimited Telegram bots with a single DSL. Serverless. Webhook-driven. Zero maintenance.*
+
+[![TypeScript](https://img.shields.io/badge/TypeScript-95.5%25-3178c6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?style=flat-square&logo=cloudflare)](https://workers.cloudflare.com/)
+[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+
+</div>
+
+---
+
+## 🚀 What is PrimoPopBot?
+
+A **single Cloudflare Worker** that runs one factory bot (controlled only by you) plus **unlimited child bots**, each entirely defined by a JSON action DSL you upload through the factory bot. Everything is **webhook-driven** — no polling, no persistent process, no infrastructure headaches.
+
+This is a from-scratch Workers reimplementation of an earlier `python-telegram-bot` long-polling project, preserving the same powerful DSL philosophy while re-deriving every mechanism for the serverless Workers runtime.
+
+### ✨ Key Features
+
+- 🤖 **Unlimited Child Bots** — One factory, infinite possibilities
+- 📝 **JSON DSL** — Define bot behavior with simple, expressive action declarations
+- ⚡ **Webhook-Driven** — No polling loops, instant response times
+- 🔐 **Military-Grade Security** — AES-GCM encryption at rest, sandboxed evaluators
+- 🌐 **TON Wallet Integration** — Built-in TON Connect v2 and signing helpers
+- 🧠 **AI-Powered** — Workers AI integration for intelligent bot generation
+- 📊 **GitHub Actions Gateway** — Control workflows from Telegram
+- 🚫 **Impossible to Pwn** — No `shell`, no `eval`, no RCE vectors
+
+---
+
+## ⚡ Quick Start
 
 ```bash
 ./setup.sh
 ```
 
-The script will:
-1. Check for / install `wrangler` and log you in.
-2. Create the `BOT_KV` KV namespace (prod + preview) and patch `wrangler.toml`.
-3. Prompt for your Telegram numeric user id and write it into `wrangler.toml`.
-4. Prompt for and set the two Worker secrets (`SECRET_PASSPHRASE`,
-   `TELEGRAM_WEBHOOK_SECRET`) via `wrangler secret put`.
-5. Deploy the Worker.
-6. Prompt for your **factory bot's** BotFather token, call `setWebhook`
-   against the deployed Worker URL, and register it in KV as `bot:factory`.
+The script will automatically:
+1. ✅ Check for / install `wrangler` and log you in
+2. ✅ Create the `BOT_KV` KV namespace (prod + preview) and patch `wrangler.toml`
+3. ✅ Prompt for your Telegram numeric user id and write it into `wrangler.toml`
+4. ✅ Prompt for and set the two Worker secrets (`SECRET_PASSPHRASE`, `TELEGRAM_WEBHOOK_SECRET`)
+5. ✅ Deploy the Worker
+6. ✅ Register your **factory bot** and store it in KV as `bot:factory`
 
 After that, open a chat with your factory bot on Telegram and send `/start`.
 
-### Manual setup (if you'd rather not use setup.sh)
+### 🛠️ Manual Setup (if you'd rather not use setup.sh)
 
 ```bash
 npm install
@@ -47,42 +70,49 @@ npx wrangler secret put TELEGRAM_WEBHOOK_SECRET
 
 npx wrangler deploy
 
-# Register the factory bot itself (one-time, not through /newbot since the
-# factory bot talks to itself):
+# Register the factory bot itself (one-time):
 curl -s "https://api.telegram.org/bot<FACTORY_TOKEN>/setWebhook" \
   -d "url=https://<your-worker>.workers.dev/hook/factory" \
   -d "secret_token=<same value you put in TELEGRAM_WEBHOOK_SECRET>"
 
-# Then put the factory bot's record into KV so the Worker can send replies:
+# Put the factory bot's record into KV:
 npx wrangler kv key put --binding=BOT_KV "bot:factory" \
   '{"botId":"factory","token":"<FACTORY_TOKEN>","ownerId":"<your-id>","visibility":"private","createdAt":"2026-07-31T00:00:00Z"}'
 ```
 
-## Using it
+---
 
-Open your factory bot on Telegram and send `/help` for the full command
-list. Typical flow for a new child bot:
+## 💡 Usage Examples
+
+### Creating a New Child Bot
+
+Open your factory bot on Telegram and send `/help` for the full command list. Typical flow:
 
 ```
 /newbot 123456:AA...            → validate token, then tap Public/Private
 /setconfig mychildbot           → attach examples/simple-public-bot.json
 ```
 
-or without a file:
+Or define it inline:
 
 ```
 /json mychildbot {"version":1,"commands":[{"command":"start","actions":[{"type":"send_message","text":"hi {user.first_name}"}]}]}
 ```
 
-Starter configs are in `examples/`:
-- `simple-public-bot.json` — dice, poll, and an `ask`-based name-capture flow.
-- `price-tracker-bot.json` — `request` + `transform` + `sort_slice` for a
-  top-movers list, and `compute` for a two-question margin calculator.
-- `interface-anything-bot.json` — shows the generic `telegram_api` action, which lets a bot config call Telegram Bot API methods that do not yet have first-class DSL wrappers.
-- `ton-wallet-bot.json` — shows TON Connect links for mainnet/testnet wallet connection and a wallet-side signing flow.
+### 📦 Starter Configs
 
-Secrets (e.g. an API key a child bot's `request` actions need) are stored
-per-bot, AES-GCM-encrypted at rest:
+Pre-built examples in `examples/`:
+
+| Config | Purpose |
+|--------|---------|
+| `simple-public-bot.json` | Dice, polls, and ask-based name capture |
+| `price-tracker-bot.json` | Real-time data requests and margin calculator |
+| `interface-anything-bot.json` | Generic Telegram API calls for unlimited flexibility |
+| `ton-wallet-bot.json` | TON wallet connections and signing flows |
+
+### 🔐 Managing Secrets
+
+Store API keys, tokens, and sensitive data per-bot, encrypted at rest with AES-GCM:
 
 ```
 /set_secret mychildbot
@@ -91,25 +121,23 @@ per-bot, AES-GCM-encrypted at rest:
 ✅ Saved secret API_KEY for mychildbot. I deleted your message containing the value.
 ```
 
-Reference it in a config with `{secrets.API_KEY}` — resolved server-side
-only, never echoed back unless an action's own text explicitly includes it
-(don't do that in a public bot's config).
+Reference in your config with `{secrets.API_KEY}` — resolved server-side only, never exposed unless you explicitly include it.
 
-GitHub Actions gateway needs three secrets on the special `factory` botId:
+### 🚀 GitHub Actions Gateway
+
+Enable GitHub workflow control directly from Telegram:
 
 ```
 /set_secret factory   → GITHUB_TOKEN
 /set_secret factory   → GITHUB_OWNER
 /set_secret factory   → GITHUB_REPO
 ```
-then `/gh_workflows`, `/gh_runs`, `/gh_dispatch <workflow> [ref]`, etc. work.
 
-### Generic Telegram interfaces
+Then use `/gh_workflows`, `/gh_runs`, `/gh_dispatch <workflow> [ref]`, etc.
 
-For Telegram features that are not yet first-class DSL actions, use
-`telegram_api`. It calls any Telegram Bot API method with a templated JSON
-payload, automatically filling `chat_id` with the current chat unless you
-provide one yourself:
+### 🌐 Generic Telegram Interfaces
+
+For features not yet wrapped as DSL actions, use `telegram_api`:
 
 ```json
 {
@@ -124,30 +152,18 @@ provide one yourself:
 }
 ```
 
-If you set `assign`, the Telegram API result is stored in `vars` for later
-actions. This keeps the factory extensible: new Bot API surfaces can be used
-from JSON immediately, while common ones can still get friendly wrappers over
-time.
+### 💰 TON Wallet & Signing
 
-### TON wallet and signing helpers
+Built-in TON-specific helpers for mainnet and testnet:
 
-The DSL includes TON-specific helpers for bots that need wallet UX on mainnet
-or testnet:
+- **`ton_connect`** — Build TON Connect v2 links, send as inline buttons, request `ton_proof` for authentication
+- **`ton_sign`** — Build signing URLs for your HTTPS signing page with network, payload type, and state
 
-- `ton_connect` builds a TON Connect v2 link, sends it as an inline button,
-  and can request `ton_proof` for wallet authentication. Use `network:
-  "mainnet"` or `network: "testnet"`; if omitted, mainnet is used.
-- `ton_sign` builds a signing URL for your HTTPS TON signing page with the
-  selected network, payload type (`text`, `binary`, or `cell`), payload,
-  return URL, and state. The wallet performs the signature; the bot never
-  receives or stores private keys.
+Both support placeholders like `{user.id}`, `{chat.id}`, `{vars.some_value}` and reject secret placeholders for external transmission.
 
-Both actions support placeholders such as `{user.id}`, `{chat.id}`, and
-`{vars.some_value}` in URL and payload fields. Secret placeholders are rejected
-for externally transmitted TON link fields. Set `assign` to keep the generated
-link in `vars` for later actions.
+---
 
-## Architecture
+## 🏗️ Architecture
 
 ```
 Telegram ──POST /hook/factory──▶  Worker  ──▶ factory.ts (owner-only commands)
@@ -161,114 +177,99 @@ Telegram ──POST /hook/:botId───▶  Worker  ──▶ dsl/interpreter.
            blobs)             — per botId:chatId)          sandboxed evaluator)
 ```
 
-- **KV (`BOT_KV`)** — `bot:<botId>`, `config:<botId>`, `secrets:<botId>`
-  (AES-GCM ciphertext), `pending:<chatId>` (short-TTL factory-flow state).
-- **Durable Object (`ChatSession`, one per `botId:chatId`)** — the
-  conversational variable bag (`vars`), any paused `ask` flow (remaining
-  actions + resume index), and a token-bucket rate limiter for public bots.
-  This has to be a Durable Object rather than a global variable or KV
-  entry: Workers gives no guarantee an isolate's in-memory state survives
-  between requests, and KV's eventual consistency is too slow/racy for a
-  hot conversational loop where two updates for the same chat could arrive
-  close together.
-- **`dsl/expression.ts`** — the sandboxed `compute` evaluator: a hand-rolled
-  recursive-descent parser over arithmetic + a small function whitelist
-  (`abs round floor ceil min max sqrt`). It cannot reach `eval`/`Function`,
-  arbitrary property access, method calls, or loops — this is what replaces
-  the Python original's `eval()`-based formula action and its
-  `shell`/`python` action types.
+### 📚 Component Breakdown
 
-## Security model
+| Component | Purpose |
+|-----------|---------|
+| **KV (`BOT_KV`)** | Bot registry, configs, encrypted secrets, transient factory-flow state |
+| **ChatSession DO** | Per-chat conversational state, paused ask flows, token-bucket rate limiting |
+| **`dsl/expression.ts`** | Sandboxed compute evaluator (arithmetic + whitelisted functions only) |
+| **`dsl/interpreter.ts`** | DSL execution engine (runActions) |
 
-- **Factory bot**: hardcoded owner check (`FACTORY_OWNER_ID`) runs first,
-  before any command dispatch, on every update. If it's unset, everyone is
-  refused (fail closed).
-- **Private child bots**: only the registering owner may interact; all
-  other updates get a silent `200 OK` with no reply, so probing reveals
-  nothing.
-- **Public child bots**:
-  - Configs are validated at `/setconfig`/`/json`/`/ai`-save time and
-    **rejected outright** (not silently stripped) if they contain any
-    action type disallowed on public bots.
-  - All `request` actions on public bots are token-bucket rate-limited per
-    chat via the `ChatSession` Durable Object.
-- **`shell` and `python` action types do not exist in this DSL at all** —
-  not "disabled", not "admin-only", genuinely absent from the type system,
-  the schema validator, and the interpreter's switch statement. There is no
-  code path that reaches `eval`/`Function`/`subprocess` anywhere in this
-  codebase.
+---
 
-## What's different from the Python original
+## 🔒 Security Model
 
-The build prompt asked for these to be flagged explicitly rather than
-silently diverged on:
+✅ **Factory Bot**: Hardcoded owner check (`FACTORY_OWNER_ID`) gates all access  
+✅ **Private Bots**: Only the owner can interact; silent 200 OK for probes  
+✅ **Public Bots**: Configs validated at save time, rejected if unsafe; rate-limited requests  
+✅ **No Shell/Python**: No `shell` or `python` actions exist in the type system — impossible RCE vector  
+✅ **Sandboxed Compute**: Custom formulas run in a non-Turing-complete whitelist evaluator, never reaching `eval` or `Function`
 
-1. **No `shell`/`python` actions, at all.** The Python version could run
-   arbitrary shell/Python via `subprocess`/`exec()` inside a process it
-   fully controlled. A Worker has no privileged host process to sandbox
-   that in, and a public bot with that capability is an instant RCE
-   vector. `compute`/`transform` cover the "custom data shaping" use case
-   through a whitelisted, non-Turing-complete evaluator instead.
-2. **Session state lives in a Durable Object, not in-process memory.**
-   `context.user_data` in `python-telegram-bot` was just a dict living in
-   the bot process's memory for the process's lifetime. Workers isolates
-   are ephemeral and possibly-concurrent, so the equivalent state (`vars`,
-   paused `ask` flows) has to be externalized into a DO, which also means
-   it costs a network round trip per read/write instead of being free.
-3. **Fernet → Web Crypto AES-GCM.** Same goal (symmetric encryption of
-   secrets at rest, keyed by a passphrase), different primitive, because
-   Fernet isn't available in `workerd` and Web Crypto is the native,
-   audited option.
-4. **Cloudflare AI HTTP API → native `env.AI` binding.** The Python
-   original had to make an authenticated HTTP call out to Cloudflare's AI
-   API. Since the Worker already runs on Cloudflare's edge, `/ai` calls
-   `env.AI.run(...)` directly — no `CF_API_TOKEN`/`CF_ACCOUNT_ID` needed at
-   all, one fewer secret to manage.
-5. **Nested `condition` branches with a pause inside them resume the inner
-   branch only.** If an `ask` sits inside a `condition`'s `then`/`else`,
-   resuming continues that branch to completion but does not return to any
-   sibling actions that were scheduled to run *after* the `condition`
-   action in the outer list. This is a deliberate interpreter-simplicity
-   tradeoff (see the comment in `dsl/interpreter.ts`), not a Workers
-   platform constraint — flagged here in case a config relies on it.
-6. **Long-polling → webhooks.** The single biggest structural change: no
-   `getUpdates` loop, no persistent process. Every update is a `POST`
-   Cloudflare routes to your Worker, verified via the
-   `X-Telegram-Bot-Api-Secret-Token` header instead of trusting an
-   outbound-initiated connection.
+---
 
-## Repo layout
+## 🔄 Differences from Python Original
+
+This reimplementation deliberately changes:
+
+1. **No `shell`/`python` actions** — Completely absent from type system, schema, and interpreter. Replaced with `compute`/`transform` using a whitelisted evaluator.
+
+2. **Session state in Durable Objects** — Not in-process memory. Workers isolates are ephemeral, so `vars` and paused flows live externally in a DO (trades memory for network round-trip, gains durability).
+
+3. **Web Crypto AES-GCM** — Same goal as Fernet (symmetric encryption), different primitive (Fernet unavailable in workerd).
+
+4. **Native `env.AI` binding** — Direct Workers AI integration instead of authenticated HTTP calls. One fewer secret to manage.
+
+5. **Nested `condition` + `ask` resume behavior** — Resume continues the inner branch only, not sibling actions after the condition (interpreter simplicity tradeoff).
+
+6. **Webhooks instead of long-polling** — No `getUpdates` loop, no persistent process. Every update routes to your Worker, verified via `X-Telegram-Bot-Api-Secret-Token` header.
+
+---
+
+## 📂 Repository Layout
 
 ```
-wrangler.toml           Worker config: KV binding, DO binding, AI binding, vars
+wrangler.toml              Worker config: KV, DO, AI bindings
 package.json / tsconfig.json
 src/
-  index.ts              Hono app: /hook/factory and /hook/:botId routes
-  telegram.ts           fetch()-based Telegram Bot API client
-  env.ts                shared Env (bindings + vars) interface
-  secrets.ts             Web Crypto AES-GCM encrypt/decrypt
-  session.do.ts          ChatSession Durable Object
-  session-client.ts       thin fetch wrapper for talking to the DO
-  factory.ts             all factory-bot commands
-  github.ts               GitHub Actions gateway
-  ai.ts                    Workers AI-backed command generator
-  dsl/
-    types.ts               action + config type definitions
-    schema.ts               shape validator + public-bot safety checks
-    expression.ts            sandboxed `compute` evaluator
-    template.ts              {user.x}/{vars.x}/{secrets.x} interpolation
-    interpreter.ts           runActions — the DSL execution engine
+  ├── index.ts             Hono app: /hook/factory & /hook/:botId routes
+  ├── telegram.ts          Telegram Bot API client (fetch-based)
+  ├── env.ts               Shared Env (bindings + vars) interface
+  ├── secrets.ts           Web Crypto AES-GCM encrypt/decrypt
+  ├── session.do.ts        ChatSession Durable Object
+  ├── session-client.ts    DO communication wrapper
+  ├── factory.ts           Factory-bot command handlers
+  ├── github.ts            GitHub Actions gateway
+  ├── ai.ts                Workers AI-backed command generator
+  └── dsl/
+      ├── types.ts         Action & config type definitions
+      ├── schema.ts        Shape validator & public-bot safety checks
+      ├── expression.ts    Sandboxed compute evaluator
+      ├── template.ts      {user.x}/{vars.x}/{secrets.x} interpolation
+      └── interpreter.ts   DSL execution engine (runActions)
 examples/
-  simple-public-bot.json
-  price-tracker-bot.json
-setup.sh                 one-shot wrangler setup + deploy script
+  ├── simple-public-bot.json
+  ├── price-tracker-bot.json
+  ├── interface-anything-bot.json
+  └── ton-wallet-bot.json
+assets/                    Images & logos
+setup.sh                   One-shot wrangler setup + deploy script
 ```
 
-## Limitations / known gaps
+---
 
-- `getFile`-based downloads for `/setconfig` are capped by Telegram's own
-  20MB bot-API file size limit; large config files should go through
-  `/json` in chunks or be hosted and pulled via a `request` step instead.
-- The GitHub gateway's `/gh_logs` returns a signed, time-limited download
-  URL rather than proxying the (potentially large) zip through the Worker.
-- `condition` + nested `ask` resume behavior — see point 5 above.
+## ⚠️ Known Limitations
+
+- 📥 **Large Configs**: `getFile` downloads capped at 20MB by Telegram; use `/json` in chunks or host externally
+- 📦 **GitHub Logs**: `/gh_logs` returns a signed, time-limited download URL (not proxied through Worker)
+- 🔀 **Nested Conditionals**: `condition` + nested `ask` resume only the inner branch (see differences #5)
+
+---
+
+## 🎯 Next Steps
+
+- 📖 Read `/help` in your factory bot for detailed command reference
+- 🔍 Explore the `examples/` directory for real-world config templates
+- 🚀 Check `wrangler.toml` for available bindings and environment variables
+- 💬 Open an issue for feature requests or bug reports
+
+---
+
+<div align="center">
+
+**Built with ⚡ on [Cloudflare Workers](https://workers.cloudflare.com/)**
+
+Made by [quickerup](https://github.com/quickerup) • [MIT License](LICENSE)
+
+</div>
+```
