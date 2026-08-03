@@ -6,7 +6,6 @@ export interface Env {
   AI: Ai;
   ANALYTICS_DB: D1Database;
   FACTORY_OWNER_ID: string;
-  PUBLIC_REQUEST_ALLOWLIST: string;
   // Set via `wrangler secret put SECRET_PASSPHRASE` — never a plain [vars] entry.
   SECRET_PASSPHRASE: string;
   // Shared secret Telegram must echo back on every webhook call, set via

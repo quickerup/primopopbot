@@ -25,7 +25,6 @@ export interface RunContext {
   chatId: number;
   user: { id: number; first_name: string; username?: string };
   secrets: SecretsMap;
-  requestAllowlist: string[];
   analyticsDb?: D1Database; // optional — only present when the binding exists
 }
 
@@ -48,15 +47,6 @@ function templateCtx(ctx: RunContext, vars: Record<string, unknown>): TemplateCo
   };
 }
 
-function hostAllowed(url: string, ctx: RunContext): boolean {
-  if (ctx.visibility === "private") return true; // owner-only bot, no SSRF concern from arbitrary third parties
-  try {
-    const host = new URL(url).hostname;
-    return ctx.requestAllowlist.includes(host);
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Run a command's action list starting at `startIndex`, using `vars` as the
@@ -135,13 +125,6 @@ export async function runActions(
         break;
       }
       case "request": {
-        if (ctx.visibility === "public" && !hostAllowed(action.url, ctx)) {
-          await ctx.tg.sendMessage(
-            ctx.chatId,
-            "⚠️ This bot isn't allowed to call that host. Ask the bot owner to add it to PUBLIC_REQUEST_ALLOWLIST."
-          );
-          break;
-        }
         if (ctx.visibility === "public") {
           const allowed = await ctx.session.checkRateLimit();
           if (!allowed) {
