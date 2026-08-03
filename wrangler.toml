@@ -49,7 +49,7 @@ FACTORY_OWNER_ID = "8492548344"
 # bots are permitted to call. Leave empty to block all outbound `request`
 # actions on public bots (safest default). Private bots are not restricted
 # by this list, since only the owner can drive them.
-PUBLIC_REQUEST_ALLOWLIST = "en.wikipedia.org,www.googleapis.com"
+PUBLIC_REQUEST_ALLOWLIST = "en.wikipedia.org,www.googleapis.com,api.telegram.org"
 
 [[d1_databases]]
 binding = "ANALYTICS_DB"
