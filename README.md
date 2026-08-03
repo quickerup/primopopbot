@@ -1,25 +1,17 @@
-<div align="center">
-
-<a target="_top" href="https://www.flamingtext.com/" ><img src="https://blog.flamingtext.com/blog/2026/08/03/flamingtext_com_1785727597_2804487.png" border="0" alt="Logo Design by FlamingText.com" title="Logo Design by FlamingText.com"></a>
-
-# ⚡ PrimoPopBot
-## Premium Telegram Bot Factory on Cloudflare Workers
-
-*Craft unlimited Telegram bots with a single DSL. Serverless. Webhook-driven. Zero maintenance.*
-
-[![TypeScript](https://img.shields.io/badge/TypeScript-95.5%25-3178c6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?style=flat-square&logo=cloudflare)](https://workers.cloudflare.com/)
-[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
-
-</div>
+<p align="center">
+  <a target="_top" href="https://www.flamingtext.com/">
+    <img src="https://blog.flamingtext.com/blog/2026/08/03/flamingtext_com_1785728104_2804488.png" border="0" alt="FlamingText Logo" title="FlamingText Logo" />
+  </a><br />
+  <img src="assets/logo.png" alt="Logo" title="Logo" width="250" />
+</p>
 
 ---
 
 ## 🚀 What is PrimoPopBot?
 
-A **single Cloudflare Worker** that runs one factory bot (controlled only by you) plus **unlimited child bots**, each entirely defined by a JSON action DSL you upload through the factory bot. Everything is **webhook-driven** — no polling, no persistent process, no infrastructure headaches.
+A **single Cloudflare Worker** that runs one factory bot (controlled only by you) plus **unlimited child bots**, each entirely defined by a JSON action DSL you upload through the factory bot. Ever[...]
 
-This is a from-scratch Workers reimplementation of an earlier `python-telegram-bot` long-polling project, preserving the same powerful DSL philosophy while re-deriving every mechanism for the serverless Workers runtime.
+This is a from-scratch Workers reimplementation of an earlier `python-telegram-bot` long-polling project, preserving the same powerful DSL philosophy while re-deriving every mechanism for the serv[...]
 
 ### ✨ Key Features
 
@@ -203,7 +195,7 @@ This reimplementation deliberately changes:
 
 1. **No `shell`/`python` actions** — Completely absent from type system, schema, and interpreter. Replaced with `compute`/`transform` using a whitelisted evaluator.
 
-2. **Session state in Durable Objects** — Not in-process memory. Workers isolates are ephemeral, so `vars` and paused flows live externally in a DO (trades memory for network round-trip, gains durability).
+2. **Session state in Durable Objects** — Not in-process memory. Workers isolates are ephemeral, so `vars` and paused flows live externally in a DO (trades memory for network round-trip, gains [...]
 
 3. **Web Crypto AES-GCM** — Same goal as Fernet (symmetric encryption), different primitive (Fernet unavailable in workerd).
 
@@ -271,4 +263,3 @@ setup.sh                   One-shot wrangler setup + deploy script
 Made by [quickerup](https://github.com/quickerup) • [MIT License](LICENSE)
 
 </div>
-```
