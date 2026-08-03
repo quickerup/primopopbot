@@ -38,8 +38,8 @@ export type ActionType =
 // Action types that are never allowed in a config saved against a PUBLIC
 // bot. `request` is conditionally dangerous (SSRF/open-proxy risk) so it's
 // not in this hard-block list — it's instead constrained at runtime by the
-// host allowlist (PUBLIC_REQUEST_ALLOWLIST) and by requiring `compute`
-// formulas on public bots to come from the fixed whitelist only.
+// per-chat rate limiting and by requiring `compute` formulas on public bots
+// to come from the fixed whitelist only.
 export const PUBLIC_BOT_FORBIDDEN_ACTIONS: ReadonlySet<string> = new Set([
   "shell",
   "python",

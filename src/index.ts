@@ -117,8 +117,6 @@ app.post("/hook/:botId", async (c) => {
 
     const session = new SessionClient(c.env.CHAT_SESSION, botId, msg.chat.id);
     const secrets = await loadSecrets(c.env.BOT_KV, botId, c.env.SECRET_PASSPHRASE);
-    const allowlist = c.env.PUBLIC_REQUEST_ALLOWLIST.split(",").map((h) => h.trim()).filter(Boolean);
-
     const runCtx = {
       tg,
       session,
@@ -127,7 +125,6 @@ app.post("/hook/:botId", async (c) => {
       chatId: msg.chat.id,
       user: { id: fromUser.id, first_name: fromUser.first_name, username: fromUser.username },
       secrets,
-      requestAllowlist: allowlist,
       analyticsDb: c.env.ANALYTICS_DB,
     };
 

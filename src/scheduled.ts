@@ -76,8 +76,6 @@ async function runBotSchedules(event: ScheduledEvent, env: Env): Promise<void> {
     }
   }
 
-  const allowlist = (env.PUBLIC_REQUEST_ALLOWLIST || "").split(",").map((s) => s.trim());
-
   for (const row of toRun) {
     try {
       const botRaw = await env.BOT_KV.get(`bot:${row.bot_id}`);
@@ -101,7 +99,6 @@ async function runBotSchedules(event: ScheduledEvent, env: Env): Promise<void> {
         chatId: Number(botRecord.ownerId),
         user: { id: Number(botRecord.ownerId), first_name: "Owner" },
         secrets: await loadSecrets(env.BOT_KV, row.bot_id, env.SECRET_PASSPHRASE),
-        requestAllowlist: allowlist,
         analyticsDb: env.ANALYTICS_DB
       }, cmdDef, cmdDef.actions, 0, vars);
 
