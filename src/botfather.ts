@@ -74,14 +74,17 @@ function clientApiConfig(env: Env): ClientApiConfig {
   };
 }
 
-async function waitForBotFatherResponse(client: WebTelegramClientApi, sinceMessageId?: string | number): Promise<string> {
+async function waitForBotFatherResponse(client: WebTelegramClientApi, afterId: number): Promise<{ text: string; id: number }> {
   for (let attempt = 0; attempt < 20; attempt++) {
     const messages = await client.getRecentMessages("BotFather", 5);
-    const relevant = messages.find((m) => (sinceMessageId === undefined || String(m.id) !== String(sinceMessageId)) && m.text);
-    if (relevant?.text) return relevant.text;
+    const relevant = messages
+      .filter((m) => m.text && Number(m.id) > afterId)
+      .sort((a, b) => Number(a.id) - Number(b.id))
+      .pop();
+    if (relevant?.text) return { text: relevant.text, id: Number(relevant.id) };
     await new Promise((resolve) => setTimeout(resolve, 750));
   }
-  throw new Error("Timed out waiting for @BotFather response.");
+  throw new Error("Timed out waiting for `@BotFather` response.");
 }
 
 export async function createNewBot(botName: string, botUsername: string, env: Env): Promise<string> {
