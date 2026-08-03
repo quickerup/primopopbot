@@ -2,7 +2,7 @@
   <a target="_top" href="https://www.flamingtext.com/">
     <img src="https://blog.flamingtext.com/blog/2026/08/03/flamingtext_com_1785728104_2804488.png" border="0" alt="FlamingText Logo" title="FlamingText Logo" />
   </a><br />
-  <img src="assets/logo.png" alt="Logo" title="Logo" width="250" />
+  <img src="assets/logo.png" alt="Logo" title="Logo" width="450" />
 </p>
 
 ---
