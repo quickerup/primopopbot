@@ -59,6 +59,22 @@ app.post("/hook/factory", async (c) => {
   const senderId = update.message?.from?.id ?? update.callback_query?.from.id;
   const ownerId = c.env.FACTORY_OWNER_ID;
   if (!ownerId || String(senderId) !== String(ownerId)) {
+    const chatId = update.message?.chat.id ?? update.callback_query?.message?.chat.id;
+    if (chatId) {
+      try {
+        const record = await c.env.BOT_KV.get("bot:factory");
+        if (record) {
+          const { token } = JSON.parse(record) as BotRecord;
+          const tg = new TelegramClient(token);
+          await tg.sendMessage(
+            chatId,
+            "Sorry, this bot is not yours! If you would like one just like it that acts as a factory and is easily programmable within the bot interface, head over to https://github.com/quickerup/primopopbot to clone it and give the repo a star if you end up using it!"
+          );
+        }
+      } catch (err) {
+        console.error("Failed to send unauthorized greeting:", err);
+      }
+    }
     return c.text("ok"); // 200 OK, silent drop — reveals nothing to a prober
   }
 
