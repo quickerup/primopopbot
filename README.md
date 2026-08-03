@@ -142,9 +142,10 @@ or testnet:
   return URL, and state. The wallet performs the signature; the bot never
   receives or stores private keys.
 
-Both actions support placeholders such as `{user.id}`, `{chat.id}`,
-`{vars.some_value}`, and `{secrets.SOME_SECRET}` in URL and payload fields.
-Set `assign` to keep the generated link in `vars` for later actions.
+Both actions support placeholders such as `{user.id}`, `{chat.id}`, and
+`{vars.some_value}` in URL and payload fields. Secret placeholders are rejected
+for externally transmitted TON link fields. Set `assign` to keep the generated
+link in `vars` for later actions.
 
 ## Architecture
 

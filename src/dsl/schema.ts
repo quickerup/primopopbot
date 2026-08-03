@@ -32,6 +32,12 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+function assertNoSecretPlaceholders(value: unknown, path: string): void {
+  if (typeof value === "string" && /\{\s*secrets\./i.test(value)) {
+    throw new SchemaError(`${path} cannot contain {secrets.*} placeholders because it is sent to an external TON wallet/signing URL`);
+  }
+}
+
 /**
  * Validate the overall shape of a config object. Throws SchemaError with a
  * human-readable message on the first problem found.
@@ -127,8 +133,12 @@ function validateAction(a: unknown, path: string): void {
     const t = a as any;
     if (![undefined, "mainnet", "testnet"].includes(t.network)) throw new SchemaError(`${path}.network must be mainnet or testnet`);
     if (typeof t.manifest_url !== "string") throw new SchemaError(`${path}.manifest_url is required`);
+    assertNoSecretPlaceholders(t.manifest_url, `${path}.manifest_url`);
     for (const f of ["ton_proof", "wallet_universal_url", "return_url", "text", "button_text", "assign"]) {
       if (t[f] !== undefined && typeof t[f] !== "string") throw new SchemaError(`${path}.${f} must be a string`);
+    }
+    for (const f of ["ton_proof", "wallet_universal_url", "return_url"]) {
+      assertNoSecretPlaceholders(t[f], `${path}.${f}`);
     }
   }
 
@@ -138,8 +148,13 @@ function validateAction(a: unknown, path: string): void {
     if (typeof t.signing_url !== "string") throw new SchemaError(`${path}.signing_url is required`);
     if (typeof t.payload !== "string") throw new SchemaError(`${path}.payload is required`);
     if (![undefined, "text", "binary", "cell"].includes(t.payload_type)) throw new SchemaError(`${path}.payload_type must be text, binary, or cell`);
+    assertNoSecretPlaceholders(t.signing_url, `${path}.signing_url`);
+    assertNoSecretPlaceholders(t.payload, `${path}.payload`);
     for (const f of ["return_url", "state", "text", "button_text", "assign"]) {
       if (t[f] !== undefined && typeof t[f] !== "string") throw new SchemaError(`${path}.${f} must be a string`);
+    }
+    for (const f of ["return_url", "state"]) {
+      assertNoSecretPlaceholders(t[f], `${path}.${f}`);
     }
   }
 

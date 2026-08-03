@@ -55,6 +55,10 @@ send_keyboard:
 condition:
 { "type": "condition", "var": "varname", "equals": "expected", "then": [...actions...], "else": [...actions...] }
 
+telegram_api (generic Telegram Bot API call):
+{ "type": "telegram_api", "method": "sendVenue", "payload": { "chat_id": "{chat.id}", "latitude": 40.758, "longitude": -73.9855, "title": "Meet here", "address": "Times Square" }, "assign": "telegram_result" }
+  - "method" is REQUIRED. "payload" is a templated object sent to Telegram. "assign" is optional.
+
 ton_connect (TON Connect wallet link; network defaults to mainnet):
 { "type": "ton_connect", "network": "mainnet", "manifest_url": "https://example.com/tonconnect-manifest.json", "ton_proof": "login:{user.id}", "text": "Connect your TON wallet", "button_text": "Connect wallet" }
 
